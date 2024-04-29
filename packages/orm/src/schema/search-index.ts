@@ -1,5 +1,5 @@
 import { SearchIndex } from "@azure/search-documents";
-import { FieldBuilder } from "../core";
+import { FieldBuilder } from "./field-builder";
 
 export class Index<
   TIndexName extends string,
@@ -30,3 +30,8 @@ export function index<
 >(name: TIndexName, fieldConfig: TFields) {
   return new Index(name, fieldConfig);
 }
+
+export type AnyIndex<TName extends string = string> = Index<
+  TName,
+  Record<string, FieldBuilder>
+>;

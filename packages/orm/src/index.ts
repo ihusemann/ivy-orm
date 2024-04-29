@@ -1,1 +1,2 @@
-export { connect, type InferType } from "./core";
+export { connect } from "./core";
+export { type InferType } from "./schema/util";

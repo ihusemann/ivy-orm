@@ -1,5 +1,6 @@
 import { FieldMapping } from "@azure/search-documents";
-import { FieldBuilder } from "../core";
+import { FieldBuilder } from "./field-builder";
+import { AnyIndex, Index } from "./search-index";
 
 /**
  * generate an Azure AI Search FieldMapping to map the data source field names
@@ -15,3 +16,17 @@ export function generateFieldMappings(
       sourceFieldName: fieldBuilder.config.name,
     }));
 }
+
+export type InferFieldType<TField extends FieldBuilder> =
+  TField extends FieldBuilder<infer TType, infer TNotNull>
+    ? TNotNull extends true
+      ? TType
+      : TType | null
+    : never;
+
+export type InferType<TIndex extends AnyIndex> =
+  TIndex extends Index<any, infer TFields>
+    ? {
+        [Key in keyof TFields]: InferFieldType<TFields[Key]>;
+      }
+    : never;
