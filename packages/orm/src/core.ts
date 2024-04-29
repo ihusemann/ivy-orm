@@ -6,7 +6,7 @@ import type {
 } from "@azure/search-documents";
 import { Index } from "./schema/search-index";
 
-export type Primitive = string | number | null;
+export type Primitive = string | number | Date | boolean | null;
 
 export class FieldBuilder<
   TType extends Primitive = Primitive,
@@ -54,6 +54,13 @@ export class FieldBuilder<
   notNull() {
     return this as FieldBuilder<TType, true>;
   }
+
+  private build(name?: string): SimpleField {
+    return {
+      ...this.config,
+      name: name || this.config.name,
+    };
+  }
 }
 
 export type AnyIndex<TName extends string = string> = Index<
@@ -85,6 +92,7 @@ export function connect<TSchema extends Record<string, AnyIndex>>(
 ) {
   return Object.fromEntries(
     Object.entries(schema).map(([indexName, index]) => {
+      console.log(indexName);
       return [indexName, client.getSearchClient(index.name)];
     })
   ) as ConnectSchema<TSchema>;

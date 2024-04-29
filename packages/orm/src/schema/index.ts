@@ -1,4 +1,5 @@
 export * from "./string";
 export * from "./number";
 export * from "./datetime";
-export * from "./search-index";
+export { index } from "./search-index";
+export { indexer } from "./search-indexer";

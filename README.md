@@ -12,7 +12,7 @@ export const realEstate = index("realestate-us-sample-index", {
   beds: int32("beds").filterable().sortable().facetable(),
   baths: int32("baths").filterable().sortable().facetable(),
   description: string("description").searchable(),
-  sqft: int32("sqft").filterable().sortable().facetable(),
+  squareFeet: int32("sqft").filterable().sortable().facetable(),
 });
 ```
 
@@ -26,5 +26,14 @@ const srch = connect(searchIndexClient, schema);
 const data = await srch.realEstate.search(undefined, {
   top: 20,
   select: ["listingId", "description"],
+});
+```
+
+Field names in the ORM don't need to match the names in the datasource:
+
+```ts
+export const realEstate = index("realestate-us-sample-index", {
+  squareFeet: int32("sqft").filterable().sortable().facetable(),
+  // ^ORM field name  ^datasource column name
 });
 ```

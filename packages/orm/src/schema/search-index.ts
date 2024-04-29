@@ -1,3 +1,4 @@
+import { SearchIndex } from "@azure/search-documents";
 import { FieldBuilder } from "../core";
 
 export class Index<
@@ -11,6 +12,15 @@ export class Index<
     fields: TFields
   ) {
     this.fields = fields;
+  }
+
+  private build(): SearchIndex {
+    return {
+      name: this.name,
+      fields: Object.entries(this.fields).map(([name, fieldBuilder]) =>
+        fieldBuilder["build"](name)
+      ),
+    };
   }
 }
 
