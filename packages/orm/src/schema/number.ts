@@ -1,4 +1,4 @@
-import { FieldBuilder } from "../core";
+import { FieldBuilder } from "./field-builder";
 
 export function int32(name: string) {
   return new FieldBuilder<number>(name, "Edm.Int32");
