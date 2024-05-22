@@ -1,4 +1,10 @@
-import type { SearchClient, SearchIndexClient } from "@azure/search-documents";
+import type {
+  AzureKeyCredential,
+  SearchClient,
+  SearchIndex,
+  SearchIndexClient,
+  SearchIndexerClient,
+} from "@azure/search-documents";
 import { Index } from "./schema/search-index";
 import { FieldBuilder } from "./schema/field-builder";
 
@@ -31,7 +37,6 @@ export function connect<TSchema extends Record<string, AnyIndex>>(
 ) {
   return Object.fromEntries(
     Object.entries(schema).map(([indexName, index]) => {
-      console.log(indexName);
       return [indexName, client.getSearchClient(index.name)];
     })
   ) as ConnectSchema<TSchema>;

@@ -20,6 +20,13 @@ export class Index<
       fields: Object.entries(this.fields).map(([name, fieldBuilder]) =>
         fieldBuilder["build"](name)
       ),
+      suggesters: Object.entries(this.fields)
+        .filter(([_, fieldBuilder]) => fieldBuilder["hasSuggester"])
+        .map(([_, fieldBuilder]) => ({
+          name: `sg`,
+          searchMode: "analyzingInfixMatching",
+          sourceFields: [fieldBuilder.config.name],
+        })),
     };
   }
 }

@@ -1,6 +1,6 @@
 {
   "name": "azure-ai-search-orm",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -13,10 +13,23 @@
     "build": "tsup src/index.ts --format cjs,esm --dts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "azure",
+    "cognitive",
+    "search",
+    "ai",
+    "orm",
+    "typescript",
+    "ts"
+  ],
+  "author": "ihusemann",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ihusemann/ai-search-orm"
+  },
   "license": "ISC",
   "devDependencies": {
+    "@azure/identity": "^4.1.0",
     "@azure/search-documents": "^12.0.0",
     "@changesets/cli": "^2.27.3"
   },

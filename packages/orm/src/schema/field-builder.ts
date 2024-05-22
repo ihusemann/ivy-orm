@@ -8,6 +8,8 @@ export class FieldBuilder<
 > {
   config: SimpleField;
 
+  private hasSuggester: boolean = false;
+
   constructor(name: string, type: SearchFieldDataType) {
     this.config = {
       name,
@@ -41,6 +43,13 @@ export class FieldBuilder<
 
   sortable() {
     this.config.sortable = true;
+
+    return this as FieldBuilder<TType, TNotNull>;
+  }
+
+  suggester(): FieldBuilder<TType, TNotNull> {
+    this.hasSuggester = true;
+    this.config.searchable = true;
 
     return this as FieldBuilder<TType, TNotNull>;
   }
