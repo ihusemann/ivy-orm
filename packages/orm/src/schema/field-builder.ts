@@ -4,11 +4,11 @@ export type Primitive = string | number | Date | boolean | null;
 
 export class FieldBuilder<
   TType extends Primitive = Primitive,
-  TNotNull extends boolean = boolean,
+  TNotNull extends boolean = boolean
 > {
   config: SimpleField;
 
-  private hasSuggester: boolean = false;
+  /* @internal */ hasSuggester: boolean = false;
 
   constructor(name: string, type: SearchFieldDataType) {
     this.config = {
@@ -30,7 +30,7 @@ export class FieldBuilder<
   }
 
   filterable() {
-    this.config.sortable = true;
+    this.config.filterable = true;
 
     return this as FieldBuilder<TType, TNotNull>;
   }
@@ -58,6 +58,7 @@ export class FieldBuilder<
     return this as FieldBuilder<TType, true>;
   }
 
+  /* @internal */
   private build(name?: string): SimpleField {
     return {
       ...this.config,

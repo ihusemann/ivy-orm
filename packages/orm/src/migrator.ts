@@ -36,6 +36,8 @@ export class Migrator {
 
       await this.searchIndexClient.deleteIndex(index.name);
 
+      console.log("Creating:", index);
+
       await this.searchIndexClient.createIndex(index);
     }
   }

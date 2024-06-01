@@ -9,7 +9,7 @@ class Indexer<
     "name" | "targetIndexName" | "fieldMappings"
   > & {
     targetIndex: Index<string, any>;
-  },
+  }
 > {
   private searchIndexer: SearchIndexer;
 
@@ -25,9 +25,14 @@ class Indexer<
     };
   }
 
+  /* @internal */
   private build(): SearchIndexer {
     return this.searchIndexer;
   }
+
+  // public getIndexer(): SearchIndexer {
+  //   return this.build();
+  // }
 }
 
 export type AnyIndexer<TIndexerName extends string = string> = Indexer<
@@ -44,7 +49,7 @@ export function indexer<
     "name" | "targetIndexName" | "fieldMappings"
   > & {
     targetIndex: Index<string, any>;
-  },
+  }
 >(name: TIndexerName, config: TIndexerConfig) {
   return new Indexer(name, config);
 }
