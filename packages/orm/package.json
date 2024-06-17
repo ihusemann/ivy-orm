@@ -7,7 +7,8 @@
   "types": "./dist/index.d.ts",
   "scripts": {
     "build": "tsup",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "lint": "eslint ."
   },
   "keywords": [
     "azure",
@@ -27,7 +28,7 @@
   "devDependencies": {
     "@azure/identity": "^4.1.0",
     "@azure/search-documents": "^12.0.0",
-    "@changesets/cli": "^2.27.3",
+    "@repo/eslint-config": "workspace:*",
     "tsup": "^8.0.2"
   }
 }

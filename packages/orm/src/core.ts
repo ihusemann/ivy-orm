@@ -1,6 +1,6 @@
+/* eslint-disable no-unused-vars */
 /* eslint-disable no-useless-constructor */
 /* eslint-disable dot-notation */
-/* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable no-use-before-define */
 
 import type {
@@ -14,22 +14,31 @@ import type {
   SearchIndexClient,
   SearchIndexer,
   SimpleField,
-} from '@azure/search-documents';
+} from "@azure/search-documents";
 
 export type Collection<T> = Array<T>;
 export type Primitive = string | number | Date | boolean | null;
 export type PlainObject = { [property: string]: Primitive };
-export type FieldType = Primitive | Collection<Primitive> | Collection<PlainObject>;
+export type FieldType =
+  | Primitive
+  | Collection<Primitive>
+  | Collection<PlainObject>;
 
-const isComplexFieldDataType = (type: ComplexDataType | SearchFieldDataType): type is ComplexDataType => {
-  return type === 'Edm.ComplexType' || type === 'Collection(Edm.ComplexType)';
+const isComplexFieldDataType = (
+  type: ComplexDataType | SearchFieldDataType
+): type is ComplexDataType => {
+  return type === "Edm.ComplexType" || type === "Collection(Edm.ComplexType)";
 };
 
 export abstract class FieldBuilder {
   protected config: SearchField;
   protected fields: Record<string, FieldBuilder> = {};
 
-  constructor(name: string, type: ComplexDataType | SearchFieldDataType, fields: Record<string, FieldBuilder> = {}) {
+  constructor(
+    name: string,
+    type: ComplexDataType | SearchFieldDataType,
+    fields: Record<string, FieldBuilder> = {}
+  ) {
     if (!isComplexFieldDataType(type)) {
       this.config = {
         name,
@@ -64,7 +73,7 @@ export abstract class FieldBuilder {
 
 export class SimpleFieldBuilder<
   TType extends Primitive = Primitive,
-  TNotNull extends boolean = boolean
+  TNotNull extends boolean = boolean,
 > extends FieldBuilder {
   key() {
     (this.config as SimpleField).key = true;
@@ -127,7 +136,7 @@ export class SimpleFieldBuilder<
 export class CollectionFieldBuilder<
   TName extends string,
   TFields extends Record<string, FieldBuilder>,
-  TType extends ComplexDataType
+  TType extends ComplexDataType,
 > extends FieldBuilder {
   constructor(name: TName, type: TType, fields: TFields) {
     super(name, type, fields);
@@ -148,12 +157,17 @@ export class CollectionFieldBuilder<
     return {
       name: name || this.config.name,
       type: this.config.type as ComplexDataType,
-      fields: Object.entries(this.fields).map(([name, fieldBuilder]) => fieldBuilder['build'](name)),
+      fields: Object.entries(this.fields).map(([name, fieldBuilder]) =>
+        fieldBuilder["build"](name)
+      ),
     };
   }
 }
 
-export class Index<TName extends string, TFields extends Record<string, FieldBuilder>> {
+export class Index<
+  TName extends string,
+  TFields extends Record<string, FieldBuilder>,
+> {
   name: TName;
   fields: TFields;
 
@@ -166,17 +180,22 @@ export class Index<TName extends string, TFields extends Record<string, FieldBui
   private build(): SearchIndex {
     return {
       name: this.name,
-      fields: Object.entries(this.fields).map(([name, fieldBuilder]) => fieldBuilder['build'](name)),
+      fields: Object.entries(this.fields).map(([name, fieldBuilder]) =>
+        fieldBuilder["build"](name)
+      ),
     };
   }
 }
 
-export type AnyIndex<TName extends string = string> = Index<TName, Record<string, FieldBuilder>>;
+export type AnyIndex<TName extends string = string> = Index<
+  TName,
+  Record<string, FieldBuilder>
+>;
 
-export function index<TIndexName extends string, TFields extends Record<string, FieldBuilder>>(
-  name: TIndexName,
-  fields: TFields
-) {
+export function index<
+  TIndexName extends string,
+  TFields extends Record<string, FieldBuilder>,
+>(name: TIndexName, fields: TFields) {
   return new Index(name, fields);
 }
 
@@ -184,7 +203,9 @@ export function index<TIndexName extends string, TFields extends Record<string, 
  * generate an Azure AI Search FieldMapping to map the data source field names
  * to those in the schema.
  */
-export function generateFieldMappings(fields: Record<string, FieldBuilder>): FieldMapping[] {
+export function generateFieldMappings(
+  fields: Record<string, FieldBuilder>
+): FieldMapping[] {
   return Object.entries<FieldBuilder>(fields)
     .filter(([_, f]) => !isComplexFieldDataType(f.getType()))
     .filter(([t, f]) => t !== f.getDatasourceFieldName())
@@ -196,9 +217,12 @@ export function generateFieldMappings(fields: Record<string, FieldBuilder>): Fie
 
 export class Indexer<
   TIndexerName extends string,
-  TIndexerConfig extends Omit<SearchIndexer, 'name' | 'targetIndexName' | 'fieldMappings'> & {
+  TIndexerConfig extends Omit<
+    SearchIndexer,
+    "name" | "targetIndexName" | "fieldMappings"
+  > & {
     targetIndex: Index<string, any>;
-  }
+  },
 > {
   private searchIndexer: SearchIndexer;
 
@@ -222,16 +246,19 @@ export class Indexer<
 
 export type AnyIndexer<TIndexerName extends string = string> = Indexer<
   TIndexerName,
-  Omit<SearchIndexer, 'name' | 'targetIndexName' | 'fieldMappings'> & {
+  Omit<SearchIndexer, "name" | "targetIndexName" | "fieldMappings"> & {
     targetIndex: Index<string, any>;
   }
 >;
 
 export function indexer<
   TIndexerName extends string,
-  TIndexerConfig extends Omit<SearchIndexer, 'name' | 'targetIndexName' | 'fieldMappings'> & {
+  TIndexerConfig extends Omit<
+    SearchIndexer,
+    "name" | "targetIndexName" | "fieldMappings"
+  > & {
     targetIndex: Index<string, any>;
-  }
+  },
 >(name: TIndexerName, config: TIndexerConfig) {
   return new Indexer(name, config);
 }
@@ -244,59 +271,65 @@ export function indexer<
 
 //
 export const string = (name: string) => {
-  return new SimpleFieldBuilder<string>(name, 'Edm.String');
+  return new SimpleFieldBuilder<string>(name, "Edm.String");
 };
 
 export const int32 = (name: string) => {
-  return new SimpleFieldBuilder<number>(name, 'Edm.Int32');
+  return new SimpleFieldBuilder<number>(name, "Edm.Int32");
 };
 
 export const int64 = (name: string) => {
-  return new SimpleFieldBuilder<number>(name, 'Edm.Int64');
+  return new SimpleFieldBuilder<number>(name, "Edm.Int64");
 };
 
 export const double = (name: string) => {
-  return new SimpleFieldBuilder<number>(name, 'Edm.Double');
+  return new SimpleFieldBuilder<number>(name, "Edm.Double");
 };
 
 export const boolean = (name: string) => {
-  return new SimpleFieldBuilder<boolean>(name, 'Edm.Boolean');
+  return new SimpleFieldBuilder<boolean>(name, "Edm.Boolean");
 };
 
 export const date = (name: string) => {
-  return new SimpleFieldBuilder<Date>(name, 'Edm.DateTimeOffset');
+  return new SimpleFieldBuilder<Date>(name, "Edm.DateTimeOffset");
 };
 
 export function collection<
   TName extends string,
   TFields extends Record<string, FieldBuilder>,
-  TType extends ComplexDataType
+  TType extends ComplexDataType,
 >(name: TName, fields: TFields) {
-  return new CollectionFieldBuilder(name, 'Collection(Edm.ComplexType)' as TType, fields);
+  return new CollectionFieldBuilder(
+    name,
+    "Collection(Edm.ComplexType)" as TType,
+    fields
+  );
 }
 
-export type InferFieldBuilderType<TField extends FieldBuilder> = TField extends SimpleFieldBuilder<
-  infer TType,
-  infer TNotNull
->
-  ? TNotNull extends true
-    ? TType
-    : TType | null
-  : TField extends CollectionFieldBuilder<any, infer TFields, ComplexDataType>
-  ? { [Key in keyof TFields]: InferFieldBuilderType<TFields[Key]> }[]
-  : never;
+export type InferFieldBuilderType<TField extends FieldBuilder> =
+  TField extends SimpleFieldBuilder<infer TType, infer TNotNull>
+    ? TNotNull extends true
+      ? TType
+      : TType | null
+    : TField extends CollectionFieldBuilder<any, infer TFields, ComplexDataType>
+      ? { [Key in keyof TFields]: InferFieldBuilderType<TFields[Key]> }[]
+      : never;
 
-export type InferType<TIndex extends AnyIndex> = TIndex extends Index<any, infer TFields>
-  ? {
-      [Key in keyof TFields]: InferFieldBuilderType<TFields[Key]>;
-    }
-  : never;
+export type InferType<TIndex extends AnyIndex> =
+  TIndex extends Index<any, infer TFields>
+    ? {
+        [Key in keyof TFields]: InferFieldBuilderType<TFields[Key]>;
+      }
+    : never;
 
 export type ConnectSchema<TSchema extends Record<string, AnyIndex>> = {
   [TIndex in keyof TSchema & string]: SearchClient<InferType<TSchema[TIndex]>>;
 };
 
-export function connect<TSchema extends Record<string, AnyIndex>>(client: SearchIndexClient, schema: TSchema) {
+export function connect<TSchema extends Record<string, AnyIndex>>(
+  client: SearchIndexClient,
+  schema: TSchema
+) {
   return Object.fromEntries(
     Object.entries(schema).map(([indexName, index]) => {
       return [indexName, client.getSearchClient(index.name)];
