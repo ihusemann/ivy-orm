@@ -19,6 +19,10 @@ jobs:
           node-version: 18.x
           cache: "pnpm"
       - run: pnpm install --frozen-lockfile
+      - name: Creating .npmrc file
+        run: |
+          cp .npmrc.example .npmrc 
+          sed -i "s/INSERT_YOUR_GITHUB_ACCESS_TOKEN_HERE/$NPM_TOKEN/g" .npmrc
       - name: Create Release Pull Request or Publish
         id: changesets
         uses: changesets/action@v1
