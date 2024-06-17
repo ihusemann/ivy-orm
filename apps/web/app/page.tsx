@@ -1,6 +1,6 @@
 import { DefaultAzureCredential } from "@azure/identity";
 import { SearchIndexClient } from "@azure/search-documents";
-import { connect } from "orm";
+import { connect } from "azure-ai-search-orm";
 import * as schema from "./schema";
 
 export default async function Page() {
