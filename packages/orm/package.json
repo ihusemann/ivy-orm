@@ -2,13 +2,13 @@
   "name": "azure-ai-search-orm",
   "version": "0.0.13",
   "description": "",
-  "main": "./dist/index.js",
-  "module": "./dist/index.mjs",
-  "types": "./dist/index.d.ts",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
   "scripts": {
-    "build": "tsup",
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "lint": "eslint ."
+    "build": "tsup src/index.ts --format cjs,esm --dts",
+    "dev": "tsup src/index.ts --format cjs,esm --dts --watch",
+    "lint": "tsc --noEmit"
   },
   "keywords": [
     "azure",
@@ -28,7 +28,8 @@
   "devDependencies": {
     "@azure/identity": "^4.1.0",
     "@azure/search-documents": "^12.0.0",
-    "@repo/eslint-config": "workspace:*",
-    "tsup": "^8.0.2"
+    "@total-typescript/tsconfig": "^1.0.4",
+    "tsup": "^8.0.2",
+    "typescript": "^5.3.3"
   }
 }
