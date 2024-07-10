@@ -33,6 +33,7 @@ const isComplexFieldDataType = (
 export abstract class FieldBuilder {
   protected config: SearchField;
   protected fields: Record<string, FieldBuilder> = {};
+  protected hasSuggester: boolean = false;
 
   constructor(
     name: string,
@@ -114,6 +115,13 @@ export class SimpleFieldBuilder<
     return this as SimpleFieldBuilder<TType, true>;
   }
 
+  suggester() {
+    this.hasSuggester = true;
+    (this.config as SimpleField).searchable = true;
+
+    return this as SimpleFieldBuilder<TType, TNotNull>;
+  }
+
   /* @internal */
   getType() {
     return this.config.type;
@@ -123,6 +131,11 @@ export class SimpleFieldBuilder<
   getDatasourceFieldName(): string {
     return this.config.name;
   }
+
+  // /* @internal */
+  // getHasSuggseter() {
+  //   return this.hasSuggester;
+  // }
 
   /* @internal */
   build(name?: string) {
@@ -138,6 +151,8 @@ export class CollectionFieldBuilder<
   TFields extends Record<string, FieldBuilder>,
   TType extends ComplexDataType,
 > extends FieldBuilder {
+  override hasSuggester = false;
+
   constructor(name: TName, type: TType, fields: TFields) {
     super(name, type, fields);
   }
@@ -183,6 +198,19 @@ export class Index<
       fields: Object.entries(this.fields).map(([name, fieldBuilder]) =>
         fieldBuilder["build"](name)
       ),
+      suggesters: Object.values(this.fields).some(
+        (field) => field["hasSuggester"]
+      )
+        ? [
+            {
+              name: "sg",
+              searchMode: "analyzingInfixMatching",
+              sourceFields: Object.entries(this.fields)
+                .filter(([_, fieldBuilder]) => fieldBuilder["hasSuggester"])
+                .map(([name]) => name),
+            },
+          ]
+        : undefined,
     };
   }
 }
