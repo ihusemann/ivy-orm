@@ -1,6 +1,6 @@
 {
   "name": "azure-ai-search-orm",
-  "version": "0.0.13",
+  "version": "0.0.16",
   "description": "",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
