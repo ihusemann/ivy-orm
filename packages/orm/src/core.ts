@@ -244,6 +244,29 @@ export function generateFieldMappings(
     }));
 }
 
+function mergeArraysUniqueByProperty<T extends object>(
+  array1: T[],
+  array2: T[],
+  property: keyof T
+): T[] {
+  const map = new Map<T[keyof T], T>();
+
+  // Add all objects from the first array to the map
+  array1.forEach((item) => {
+    map.set(item[property], item);
+  });
+
+  // Add objects from the second array, avoiding duplicates
+  array2.forEach((item) => {
+    if (!map.has(item[property])) {
+      map.set(item[property], item);
+    }
+  });
+
+  // Convert map values back to an array
+  return Array.from(map.values());
+}
+
 export class Indexer<
   TIndexerName extends string,
   TIndexerConfig extends Omit<SearchIndexer, "name" | "targetIndexName"> & {
@@ -253,16 +276,25 @@ export class Indexer<
   private searchIndexer: SearchIndexer;
 
   constructor(name: TIndexerName, config: TIndexerConfig) {
-    const { targetIndex, fieldMappings, ...rest } = config;
+    const {
+      targetIndex,
+      fieldMappings: userSetFieldMappings,
+      ...rest
+    } = config;
 
-    // TODO: intelligently merage `generatedFieldMappings` and `fieldMappings` to avoid duplication
-    // fieldMappings should supercede generatedFieldMappings
     const generatedFieldMappings = generateFieldMappings(targetIndex.fields);
+
+    // deduplicate fieldMappings, prioritizing those set explicityly in `fieldMappings` in the indexer
+    const fieldMappings = mergeArraysUniqueByProperty(
+      userSetFieldMappings || [],
+      generatedFieldMappings,
+      "targetFieldName"
+    );
 
     this.searchIndexer = {
       name,
       targetIndexName: targetIndex.name,
-      fieldMappings: [...generatedFieldMappings, ...(fieldMappings || [])],
+      fieldMappings: fieldMappings,
       ...rest,
     };
   }
