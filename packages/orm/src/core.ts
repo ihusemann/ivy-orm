@@ -18,7 +18,16 @@ import type {
 } from "@azure/search-documents";
 
 export type Collection<T> = Array<T>;
-export type Primitive = string | number | Date | boolean | null;
+export type Primitive =
+  | string
+  | number
+  | Date
+  | boolean
+  | null
+  | string[]
+  | number[]
+  | Date[]
+  | boolean[];
 export type PlainObject = { [property: string]: Primitive };
 export type FieldType =
   | Primitive
@@ -350,6 +359,33 @@ export const boolean = (name: string) => {
 
 export const date = (name: string) => {
   return new SimpleFieldBuilder<Date>(name, "Edm.DateTimeOffset");
+};
+
+export const stringCollection = (name: string) => {
+  return new SimpleFieldBuilder<string[]>(name, "Collection(Edm.String)");
+};
+
+export const int32Collection = (name: string) => {
+  return new SimpleFieldBuilder<number[]>(name, "Collection(Edm.Int32)");
+};
+
+export const int64Collection = (name: string) => {
+  return new SimpleFieldBuilder<number[]>(name, "Collection(Edm.Int64)");
+};
+
+export const doubleCollection = (name: string) => {
+  return new SimpleFieldBuilder<number[]>(name, "Collection(Edm.Double)");
+};
+
+export const dateCollection = (name: string) => {
+  return new SimpleFieldBuilder<string[]>(
+    name,
+    "Collection(Edm.DateTimeOffset)"
+  );
+};
+
+export const booleanCollection = (name: string) => {
+  return new SimpleFieldBuilder<string[]>(name, "Collection(Edm.Boolean)");
 };
 
 export function collection<

@@ -54,9 +54,25 @@ myField: boolean("myField");
 
 ### Collections
 
-Note: collections of primitves are a WIP. Azure AI Search ORM currently only supports collections of ComplexType
-
 ```ts
+// Collection(Edm.String)
+myCollection: stringCollection("myCollection");
+
+// Collection(Edm.Int32)
+myCollection: int32Collection("myCollection");
+
+// Collection(Edm.Int64)
+myCollection: int64Collection("myCollection");
+
+// Collection(Edm.Double)
+myCollection: doubleCollection("myCollection");
+
+// Collection(Edm.DateTimeOffset)
+myCollection: dateCollection("myCollection");
+
+// Collection(Edm.Boolean)
+myCollection: booleanCollection("myCollection");
+
 // Collection(Edm.ComplexType)
 myCollection: collection("myCollection", {
   // ComplexType object fields
