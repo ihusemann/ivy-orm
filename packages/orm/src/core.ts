@@ -14,6 +14,7 @@ import type {
   SearchIndexClient,
   SearchIndexer,
   SimpleField,
+  FieldMappingFunction,
 } from "@azure/search-documents";
 
 export type Collection<T> = Array<T>;
@@ -245,23 +246,23 @@ export function generateFieldMappings(
 
 export class Indexer<
   TIndexerName extends string,
-  TIndexerConfig extends Omit<
-    SearchIndexer,
-    "name" | "targetIndexName" | "fieldMappings"
-  > & {
+  TIndexerConfig extends Omit<SearchIndexer, "name" | "targetIndexName"> & {
     targetIndex: Index<string, any>;
   },
 > {
   private searchIndexer: SearchIndexer;
 
   constructor(name: TIndexerName, config: TIndexerConfig) {
-    const { targetIndex, ...rest } = config;
-    const fieldMappings = generateFieldMappings(targetIndex.fields);
+    const { targetIndex, fieldMappings, ...rest } = config;
+
+    // TODO: intelligently merage `generatedFieldMappings` and `fieldMappings` to avoid duplication
+    // fieldMappings should supercede generatedFieldMappings
+    const generatedFieldMappings = generateFieldMappings(targetIndex.fields);
 
     this.searchIndexer = {
       name,
       targetIndexName: targetIndex.name,
-      fieldMappings,
+      fieldMappings: [...generatedFieldMappings, ...(fieldMappings || [])],
       ...rest,
     };
   }
@@ -274,17 +275,14 @@ export class Indexer<
 
 export type AnyIndexer<TIndexerName extends string = string> = Indexer<
   TIndexerName,
-  Omit<SearchIndexer, "name" | "targetIndexName" | "fieldMappings"> & {
+  Omit<SearchIndexer, "name" | "targetIndexName"> & {
     targetIndex: Index<string, any>;
   }
 >;
 
 export function indexer<
   TIndexerName extends string,
-  TIndexerConfig extends Omit<
-    SearchIndexer,
-    "name" | "targetIndexName" | "fieldMappings"
-  > & {
+  TIndexerConfig extends Omit<SearchIndexer, "name" | "targetIndexName"> & {
     targetIndex: Index<string, any>;
   },
 >(name: TIndexerName, config: TIndexerConfig) {

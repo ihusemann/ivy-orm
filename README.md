@@ -89,7 +89,7 @@ const { results } = await srch.hotels.suggest("my query", "sg", {
 
 ## Extras
 
-Field names in the ORM don't need to match the names in the datasource. This creates a field mapping in the indexer.
+Field names in the ORM don't need to match the names in the datasource. This automatically creates a field mapping in the indexer.
 
 ```ts
 export const realEstate = index("realestate-us-sample-index", {
