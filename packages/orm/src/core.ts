@@ -189,6 +189,10 @@ export class CollectionFieldBuilder<
   }
 }
 
+export function isIndex(index: any): index is AnyIndex {
+  return !!index.fields;
+}
+
 export class Index<
   TName extends string,
   TFields extends Record<string, FieldBuilder>,
@@ -276,15 +280,22 @@ function mergeArraysUniqueByProperty<T extends object>(
   return Array.from(map.values());
 }
 
+export function isIndexer(indexer: any): indexer is AnyIndexer {
+  return !!indexer.searchIndexer;
+}
+
 export class Indexer<
   TIndexerName extends string,
   TIndexerConfig extends Omit<SearchIndexer, "name" | "targetIndexName"> & {
     targetIndex: Index<string, any>;
   },
 > {
-  private searchIndexer: SearchIndexer;
+  searchIndexer: SearchIndexer;
+  name: TIndexerName;
 
   constructor(name: TIndexerName, config: TIndexerConfig) {
+    this.name = name;
+
     const {
       targetIndex,
       fieldMappings: userSetFieldMappings,
