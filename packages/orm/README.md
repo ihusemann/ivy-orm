@@ -1,11 +1,21 @@
 # Ivy ORM
 
-A fully type-safe "ORM" for Azure AI Search (formerly Cognitive Search) inspired by Drizzle ORM.
+A TypeScript-based "ORM" for Azure AI Search (formerly Cognitive Search). Define a schema for your AI Search indexes, indexers, and data sources, and get a strongly-typed SearchClient.
 
-Define a fluent schema:
+## Documentation
+
+### Installation
+
+```bash
+npm install ivy-orm
+```
+
+### Schemas
+
+Define a schema for your indexes, indexers, and data sources:
 
 ```ts
-import { string, index, int32 } from "orm/schema";
+import { index, indexer, dataSource, string, int32 } from "orm/schema";
 
 export const realEstate = index("realestate-us-sample-index", {
   listingId: string("listingId").key(),
@@ -14,9 +24,25 @@ export const realEstate = index("realestate-us-sample-index", {
   description: string("description").searchable(),
   squareFeet: int32("sqft").filterable().sortable().facetable(),
 });
+
+export const realEstateDataSource = dataSource(
+  "realestate-us-sample",
+  "azuresql",
+  {
+    connectionString: process.env.CONNECTION_STRING,
+    container: {
+      name: "Listings_5K_KingCounty_WA",
+    },
+  }
+);
+
+export const realEstateIndexer = indexer("realestate-us-sample-indexer", {
+  targetIndex: realEstate,
+  dataSourceName: realEstateDataSource.name,
+});
 ```
 
-and use all the methods you'd usually use on a SearchClient, but with excellent TypeScript support:
+Ivy ORM infers the appropriate TypeScript types for all fields, and maps the schema onto the underlying SearchClient. You can use all the methods you'd usually use on a SearchClient, but strongly-typed and with excellent IDE autocomplete:
 
 ```ts
 const searchIndexClient = new SearchIndexClient(endpoint, identity);
@@ -29,11 +55,11 @@ const data = await srch.realEstate.search(undefined, {
 });
 ```
 
-## Supported Field Types
+### Supported Field Types
 
 Azure AI Search ORM supports most of the [AI Search EDM data types](https://learn.microsoft.com/en-us/rest/api/searchservice/supported-data-types).
 
-### Primitives
+#### Primitives
 
 ```ts
 // Edm.String
@@ -52,7 +78,7 @@ myField: double("myField");
 myField: boolean("myField");
 ```
 
-### Collections
+#### Collections
 
 ```ts
 // Collection(Edm.String)
@@ -80,7 +106,7 @@ myCollection: collection("myCollection", {
 });
 ```
 
-## Suggesters
+### Suggesters
 
 Add a suggester to a field in the index schema:
 
@@ -103,7 +129,26 @@ const { results } = await srch.hotels.suggest("my query", "sg", {
 
 `"sg"` is the default suggester name.
 
-## Extras
+### Data Sources
+
+Define the name, [type](https://learn.microsoft.com/en-us/rest/api/searchservice/data-sources/create?view=rest-searchservice-2024-07-01&tabs=HTTP#searchindexerdatasourcetype), and configuration options for the data source. See the [Azure Documentation](https://learn.microsoft.com/en-us/rest/api/searchservice/data-sources/create?view=rest-searchservice-2024-07-01&tabs=HTTP#datasourcecredentials) for more detail on the configuration options.
+
+```ts
+export const realEstateDataSource = dataSource(
+  "realestate-us-sample",
+  "azuresql",
+  {
+    connectionString: process.env.CONNECTION_STRING,
+    container: {
+      name: "Listings_5K_KingCounty_WA",
+    },
+  }
+);
+```
+
+See the [Azure Documentation](https://learn.microsoft.com/en-us/azure/search/search-howto-managed-identities-sql) on defining connection strings that use a managed identity.
+
+### Extras
 
 Field names in the ORM don't need to match the names in the datasource. This automatically creates a field mapping in the indexer.
 

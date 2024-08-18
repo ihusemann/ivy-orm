@@ -17,6 +17,11 @@ import type {
   SearchResourceEncryptionKey,
   IndexingParameters,
   IndexingSchedule,
+  SearchIndexerDataSourceConnection,
+  SearchIndexerDataContainer,
+  DataChangeDetectionPolicy,
+  SoftDeleteColumnDeletionDetectionPolicy,
+  SearchIndexerDataSourceType,
 } from "@azure/search-documents";
 
 export type Collection<T> = Array<T>;
@@ -362,6 +367,81 @@ export function indexer<
   },
 >(name: TIndexerName, config: TIndexerConfig) {
   return new Indexer(name, config);
+}
+
+function isValidDataSourceType(type: any): type is SearchIndexerDataSourceType {
+  const validTypes: SearchIndexerDataSourceType[] = [
+    "adlsgen2",
+    "azureblob",
+    "azuresql",
+    "azuretable",
+    "cosmosdb",
+    "mysql",
+  ];
+
+  return validTypes.includes(type);
+}
+
+export function isDataSource(
+  dataSource: any
+): dataSource is AnyDataSourceConnection {
+  return !!dataSource.name && isValidDataSourceType(dataSource.type);
+}
+
+export class DataSourceConnection<
+  TName extends string,
+  TType extends SearchIndexerDataSourceType,
+  TConfig extends Omit<SearchIndexerDataSourceConnection, "name" | "type">,
+> implements SearchIndexerDataSourceConnection
+{
+  name: string;
+  type: SearchIndexerDataSourceType;
+  connectionString?: string | undefined;
+  container: SearchIndexerDataContainer;
+  dataChangeDetectionPolicy?: DataChangeDetectionPolicy | undefined;
+  dataDeletionDetectionPolicy?:
+    | SoftDeleteColumnDeletionDetectionPolicy
+    | undefined;
+  description?: string | undefined;
+  encryptionKey?: SearchResourceEncryptionKey | undefined;
+  etag?: string | undefined;
+
+  constructor(
+    name: TName,
+    type: TType,
+    {
+      connectionString,
+      container,
+      dataChangeDetectionPolicy,
+      dataDeletionDetectionPolicy,
+      description,
+      encryptionKey,
+      etag,
+    }: TConfig
+  ) {
+    this.name = name;
+    this.type = type;
+    this.connectionString = connectionString;
+    this.container = container;
+    this.dataChangeDetectionPolicy = dataChangeDetectionPolicy;
+    this.dataDeletionDetectionPolicy = dataDeletionDetectionPolicy;
+    this.description = description;
+    this.encryptionKey = encryptionKey;
+    this.etag = etag;
+  }
+}
+
+export type AnyDataSourceConnection = DataSourceConnection<
+  string,
+  SearchIndexerDataSourceType,
+  Omit<SearchIndexerDataSourceConnection, "name" | "type">
+>;
+export function dataSource<
+  TName extends string,
+  TType extends SearchIndexerDataSourceType,
+  TConfig extends Omit<SearchIndexerDataSourceConnection, "name" | "type">,
+>(name: TName, type: TType, config: TConfig) {
+  return new DataSourceConnection(name, type, config);
 }
 
 /**
