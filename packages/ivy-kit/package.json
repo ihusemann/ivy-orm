@@ -1,6 +1,6 @@
 {
   "name": "ivy-kit",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "",
   "scripts": {
     "cli": "tsx ./src/index.ts",

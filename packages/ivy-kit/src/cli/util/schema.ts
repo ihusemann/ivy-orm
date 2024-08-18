@@ -1,5 +1,6 @@
 import { AnyIndex, AnyIndexer, isIndex, isIndexer } from "ivy-orm";
 import chalk from "chalk";
+import fs from "fs";
 
 export const error = (error: string, greyMsg: string = ""): string => {
   return `${chalk.bgRed.bold(" Error ")} ${error} ${greyMsg ? chalk.grey(greyMsg) : ""}`.trim();
@@ -76,6 +77,10 @@ function prepareExports(exports: Record<string, unknown>) {
 }
 
 export const readSchema = async (filepath: string) => {
+  if (!fs.existsSync(filepath)) {
+    throw new Error(`Error: Could not find schema file at '${filepath}'`);
+  }
+
   const { unregister } = await safeRegister();
   const i0: Record<string, unknown> = require(filepath);
 

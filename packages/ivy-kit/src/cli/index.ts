@@ -33,11 +33,19 @@ const push = command({
   handler: async (opts) => {
     const file = path.join(opts.cwd, opts.schema);
 
-    if (!fs.existsSync(file)) {
-      throw new Error(`Error: Could not find schema file at '${file}'`);
+    const { indexes, indexers } = await readSchema(file);
+
+    if (Object.keys(indexes).length === 0) {
+      throw new Error(
+        `${chalk.bold.red("Error:")} schema file must define at least one index.`
+      );
     }
 
-    const { indexes, indexers } = await readSchema(file);
+    if (Object.keys(indexers).length === 0) {
+      throw new Error(
+        `${chalk.bold.red("Error:")} schema file must define at least one indexer.`
+      );
+    }
 
     const searchIndexClient = new SearchIndexClient(
       opts.endpoint,
@@ -110,7 +118,7 @@ const push = command({
         title: name,
         description: indexer.name,
         value: indexer,
-        disabled: !allIndexes.includes(indexer.searchIndexer.targetIndexName),
+        disabled: !allIndexes.includes(indexer.targetIndexName),
       })),
     });
 
@@ -146,7 +154,7 @@ const push = command({
         await searchIndexerClient.deleteIndexer(indexer.name);
       }
       createIndexerSpinner.text = `Creating indexer ${indexer.name}`;
-      await searchIndexerClient.createIndexer(indexer.searchIndexer);
+      await searchIndexerClient.createIndexer(indexer);
     }
 
     createIndexerSpinner.succeed();

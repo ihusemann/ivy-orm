@@ -14,7 +14,9 @@ import type {
   SearchIndexClient,
   SearchIndexer,
   SimpleField,
-  FieldMappingFunction,
+  SearchResourceEncryptionKey,
+  IndexingParameters,
+  IndexingSchedule,
 } from "@azure/search-documents";
 
 export type Collection<T> = Array<T>;
@@ -281,7 +283,7 @@ function mergeArraysUniqueByProperty<T extends object>(
 }
 
 export function isIndexer(indexer: any): indexer is AnyIndexer {
-  return !!indexer.searchIndexer;
+  return !!(indexer.name && indexer.targetIndexName && indexer.dataSourceName);
 }
 
 export class Indexer<
@@ -289,17 +291,33 @@ export class Indexer<
   TIndexerConfig extends Omit<SearchIndexer, "name" | "targetIndexName"> & {
     targetIndex: Index<string, any>;
   },
-> {
-  searchIndexer: SearchIndexer;
+> implements SearchIndexer
+{
   name: TIndexerName;
+  dataSourceName: string;
+  description?: string | undefined;
+  encryptionKey?: SearchResourceEncryptionKey | undefined;
+  etag?: string | undefined;
+  fieldMappings?: FieldMapping[] | undefined;
+  isDisabled?: boolean | undefined;
+  outputFieldMappings?: FieldMapping[] | undefined;
+  parameters?: IndexingParameters | undefined;
+  schedule?: IndexingSchedule | undefined;
+  skillsetName?: string | undefined;
+  targetIndexName: string;
 
   constructor(name: TIndexerName, config: TIndexerConfig) {
-    this.name = name;
-
     const {
       targetIndex,
       fieldMappings: userSetFieldMappings,
-      ...rest
+      description,
+      dataSourceName,
+      encryptionKey,
+      etag,
+      isDisabled,
+      outputFieldMappings,
+      parameters,
+      schedule,
     } = config;
 
     const generatedFieldMappings = generateFieldMappings(targetIndex.fields);
@@ -311,17 +329,22 @@ export class Indexer<
       "targetFieldName"
     );
 
-    this.searchIndexer = {
-      name,
-      targetIndexName: targetIndex.name,
-      fieldMappings: fieldMappings,
-      ...rest,
-    };
+    this.name = name;
+    this.description = description;
+    this.dataSourceName = dataSourceName;
+    this.encryptionKey = encryptionKey;
+    this.etag = etag;
+    this.fieldMappings = fieldMappings;
+    this.isDisabled = isDisabled;
+    this.outputFieldMappings = outputFieldMappings;
+    this.parameters = parameters;
+    this.schedule = schedule;
+    this.targetIndexName = targetIndex.name;
   }
 
   /* @internal */
   private build(): SearchIndexer {
-    return this.searchIndexer;
+    return this;
   }
 }
 
