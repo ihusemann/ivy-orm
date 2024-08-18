@@ -1,4 +1,4 @@
-# Azure AI Search ORM
+# Ivy ORM
 
 A fully type-safe "ORM" for Azure AI Search (formerly Cognitive Search) inspired by Drizzle ORM.
 
