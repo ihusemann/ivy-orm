@@ -15,7 +15,7 @@ npm install ivy-orm
 Define a schema for your indexes, indexers, and data sources:
 
 ```ts
-import { index, indexer, dataSource, string, int32 } from "orm/schema";
+import { index, indexer, dataSource, string, int32 } from "ivy-orm";
 
 export const realEstate = index("realestate-us-sample-index", {
   listingId: string("listingId").key(),
@@ -111,7 +111,7 @@ myCollection: collection("myCollection", {
 Add a suggester to a field in the index schema:
 
 ```ts
-import { index, string } from "azure-ai-search-orm";
+import { index, string } from "ivy-orm";
 
 const hotels = index("hotels-sample-index", {
   name: string("name").suggester(),

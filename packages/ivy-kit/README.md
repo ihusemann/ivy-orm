@@ -1,6 +1,6 @@
 # Ivy Kit
 
-Ivy Kit is a CLI migrator tool for [IvyORM](https://www.npmjs.com/package/ivy-orm), a fully type-safe "ORM" for Azure AI Search. Use Ivy Kit to manage your AI Search data plane, like creating indexes and indexers.
+Ivy Kit is a CLI migrator tool for [Ivy ORM](https://www.npmjs.com/package/ivy-orm), a fully type-safe "ORM" for Azure AI Search. Use Ivy Kit to manage your AI Search data plane, like creating indexes and indexers.
 
 # Documentation
 

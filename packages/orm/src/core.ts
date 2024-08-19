@@ -530,17 +530,27 @@ export type InferType<TIndex extends AnyIndex> =
       }
     : never;
 
-export type ConnectSchema<TSchema extends Record<string, AnyIndex>> = {
-  [TIndex in keyof TSchema & string]: SearchClient<InferType<TSchema[TIndex]>>;
+// only include Indexes in the schema output
+type FilteredSchema<TSchema> = {
+  [TIndex in keyof TSchema]: TSchema[TIndex] extends AnyIndex ? TIndex : never;
+}[keyof TSchema];
+
+export type ConnectSchema<TSchema extends Record<string, any>> = {
+  [TIndex in FilteredSchema<TSchema>]: SearchClient<InferType<TSchema[TIndex]>>;
 };
 
-export function connect<TSchema extends Record<string, AnyIndex>>(
-  client: SearchIndexClient,
-  schema: TSchema
-) {
+export function connect<
+  TSchema extends Record<
+    string,
+    AnyIndex | AnyIndexer | AnyDataSourceConnection
+  >,
+>(client: SearchIndexClient, schema: TSchema) {
   return Object.fromEntries(
-    Object.entries(schema).map(([indexName, index]) => {
-      return [indexName, client.getSearchClient(index.name)];
-    })
-  ) as ConnectSchema<TSchema>;
+    Object.entries(schema)
+      // only inclde indexes in the output
+      .filter(([_, item]) => isIndex(item))
+      .map(([indexName, index]) => {
+        return [indexName, client.getSearchClient(index.name)];
+      })
+  ) as unknown as ConnectSchema<TSchema>;
 }
