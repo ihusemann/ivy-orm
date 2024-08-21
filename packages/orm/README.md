@@ -1,6 +1,8 @@
 # Ivy ORM
 
-A TypeScript-based "ORM" for Azure AI Search (formerly Cognitive Search). Define a schema for your AI Search indexes, indexers, and data sources, and get a strongly-typed SearchClient.
+A TypeScript-based "ORM" for [Azure AI Search](https://learn.microsoft.com/en-us/azure/search/search-what-is-azure-search) (formerly Cognitive Search). Define a schema for your AI Search indexes, indexers, and data sources, and get a strongly-typed [SearchClient](https://learn.microsoft.com/en-us/javascript/api/@azure/search-documents/searchclient?view=azure-node-latest).
+
+See [Ivy Kit](https://www.npmjs.com/package/ivy-kit) for a handy CLI migrator tool!
 
 ## Documentation
 
@@ -57,7 +59,7 @@ const data = await srch.realEstate.search(undefined, {
 
 ### Supported Field Types
 
-Azure AI Search ORM supports most of the [AI Search EDM data types](https://learn.microsoft.com/en-us/rest/api/searchservice/supported-data-types).
+Ivy ORM supports most of the [AI Search EDM data types](https://learn.microsoft.com/en-us/rest/api/searchservice/supported-data-types).
 
 #### Primitives
 

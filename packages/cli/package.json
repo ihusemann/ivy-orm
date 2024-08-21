@@ -1,0 +1,68 @@
+{
+  "name": "ivy-kit",
+  "version": "0.0.8",
+  "description": "",
+  "bin": {
+    "ivy-kit": "./dist/bin.cjs"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "cli": "tsx ./src/bin.ts",
+    "build": "rm -rf dist && pnpm build:cli && pnpm build:kit",
+    "build:cli": "esbuild --bundle src/bin.ts --platform=node --target=node16 --outfile=dist/bin.cjs --format=cjs --external:esbuild --external:fs --packages=external",
+    "build:kit": "tsup src/index.ts --format cjs,esm --outDir dist --dts --minify --target esnext --external @azure/identity,zod,cosmiconfig,chalk",
+    "pub:release": "pnpm build && pnpm publish --no-git-checks"
+  },
+  "keywords": [
+    "ivy",
+    "orm",
+    "azure",
+    "ai",
+    "search",
+    "ivy-kit",
+    "schema",
+    "migrations",
+    "typescript",
+    "ts",
+    "cognitive"
+  ],
+  "author": "ihusemann",
+  "license": "MIT",
+  "dependencies": {
+    "@drizzle-team/brocli": "^0.10.1",
+    "@esbuild-kit/esm-loader": "^2.6.5",
+    "esbuild": "^0.23.1",
+    "esbuild-register": "^3.6.0"
+  },
+  "devDependencies": {
+    "@azure/identity": "^4.1.0",
+    "@azure/search-documents": "^12.0.0",
+    "@total-typescript/tsconfig": "^1.0.4",
+    "@types/node": "^22.4.1",
+    "@types/prompts": "^2.4.9",
+    "chalk": "^4.1.2",
+    "cosmiconfig": "^9.0.0",
+    "esbuild": "^0.23.1",
+    "ivy-orm": "workspace:*",
+    "ora": "^8.0.1",
+    "prompts": "^2.4.2",
+    "tsup": "^8.0.2",
+    "tsx": "^4.16.2",
+    "typescript": "^5.3.3",
+    "zod": "^3.23.8"
+  },
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    }
+  }
+}

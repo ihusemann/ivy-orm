@@ -1,14 +1,18 @@
 {
   "name": "ivy-orm",
-  "version": "0.0.6",
+  "version": "0.0.8",
   "description": "",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "rm -rf dist && tsup src/index.ts --format cjs,esm --dts",
     "dev": "tsup src/index.ts --format cjs,esm --dts --watch",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "pub:release": "pnpm build && pnpm publish --no-git-checks"
   },
   "keywords": [
     "azure",

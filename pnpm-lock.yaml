@@ -41,13 +41,71 @@ importers:
         version: 20.15.0
       ivy-kit:
         specifier: workspace:*
-        version: link:../../packages/ivy-kit
+        version: link:../../packages/cli
       tsx:
         specifier: ^4.16.2
         version: 4.17.0
       typescript:
         specifier: ^5.3.3
         version: 5.4.5
+
+  packages/cli:
+    dependencies:
+      '@drizzle-team/brocli':
+        specifier: ^0.10.1
+        version: 0.10.1
+      '@esbuild-kit/esm-loader':
+        specifier: ^2.6.5
+        version: 2.6.5
+      esbuild:
+        specifier: ^0.23.1
+        version: 0.23.1
+      esbuild-register:
+        specifier: ^3.6.0
+        version: 3.6.0(esbuild@0.23.1)
+    devDependencies:
+      '@azure/identity':
+        specifier: ^4.1.0
+        version: 4.1.0
+      '@azure/search-documents':
+        specifier: ^12.0.0
+        version: 12.0.0
+      '@total-typescript/tsconfig':
+        specifier: ^1.0.4
+        version: 1.0.4
+      '@types/node':
+        specifier: ^22.4.1
+        version: 22.4.1
+      '@types/prompts':
+        specifier: ^2.4.9
+        version: 2.4.9
+      chalk:
+        specifier: ^4.1.2
+        version: 4.1.2
+      cosmiconfig:
+        specifier: ^9.0.0
+        version: 9.0.0(typescript@5.4.5)
+      ivy-orm:
+        specifier: workspace:*
+        version: link:../orm
+      ora:
+        specifier: ^8.0.1
+        version: 8.0.1
+      prompts:
+        specifier: ^2.4.2
+        version: 2.4.2
+      tsup:
+        specifier: ^8.0.2
+        version: 8.0.2(typescript@5.4.5)
+      tsx:
+        specifier: ^4.16.2
+        version: 4.17.0
+      typescript:
+        specifier: ^5.3.3
+        version: 5.4.5
+      zod:
+        specifier: ^3.23.8
+        version: 3.23.8
 
   packages/eslint-config:
     devDependencies:
@@ -114,7 +172,7 @@ importers:
         version: 5.3.0
       cosmiconfig:
         specifier: ^9.0.0
-        version: 9.0.0
+        version: 9.0.0(typescript@5.4.5)
       ivy-orm:
         specifier: workspace:*
         version: link:../orm
@@ -1741,6 +1799,12 @@ packages:
       undici-types: 6.13.0
     dev: true
 
+  /@types/node@22.4.1:
+    resolution: {integrity: sha512-1tbpb9325+gPnKK0dMm+/LMriX0vKxf6RnB0SZUqfyVkQ4fMgUSySqhxE/y8Jvs4NyF1yHzTfG9KlnkIODxPKg==}
+    dependencies:
+      undici-types: 6.19.6
+    dev: true
+
   /@types/normalize-package-data@2.4.4:
     resolution: {integrity: sha512-37i+OaWTh9qeK4LSHPsyRC7NahnGotNuZvjLSgcPzblpHB3rrCJxAOgI5gCdKm7coonsaX1Of0ILiTcnZjbfxA==}
     dev: true
@@ -2641,7 +2705,7 @@ packages:
     resolution: {integrity: sha512-Kvp459HrV2FEJ1CAsi1Ku+MY3kasH19TFykTz2xWmMeq6bk2NU3XXvfJ+Q61m0xktWwt+1HSYf3JZsTms3aRJg==}
     dev: true
 
-  /cosmiconfig@9.0.0:
+  /cosmiconfig@9.0.0(typescript@5.4.5):
     resolution: {integrity: sha512-itvL5h8RETACmOTFc4UfIyB2RfEHi71Ax6E/PivVxq9NseKbOWpeyHEOIbmAw1rs8Ak0VursQNww7lf7YtUwzg==}
     engines: {node: '>=14'}
     peerDependencies:
@@ -2654,6 +2718,7 @@ packages:
       import-fresh: 3.3.0
       js-yaml: 4.1.0
       parse-json: 5.2.0
+      typescript: 5.4.5
     dev: true
 
   /cross-spawn@5.1.0:
@@ -4613,7 +4678,7 @@ packages:
       cli-table3: 0.6.5
       marked: 9.1.6
       node-emoji: 2.1.3
-      supports-hyperlinks: 3.0.0
+      supports-hyperlinks: 3.1.0
     dev: true
 
   /marked@9.1.6:
@@ -5677,8 +5742,8 @@ packages:
       has-flag: 4.0.0
     dev: true
 
-  /supports-hyperlinks@3.0.0:
-    resolution: {integrity: sha512-QBDPHyPQDRTy9ku4URNGY5Lah8PAaXs6tAAwp55sL5WCsSW7GIfdf6W5ixfziW+t7wh3GVvHyHHyQ1ESsoRvaA==}
+  /supports-hyperlinks@3.1.0:
+    resolution: {integrity: sha512-2rn0BZ+/f7puLOHZm1HOJfwBggfaHXUpPUSSG/SWM4TWp5KCfmNYwnC3hruy2rZlMnmWZ+QAGpZfchu3f3695A==}
     engines: {node: '>=14.18'}
     dependencies:
       has-flag: 4.0.0
@@ -6021,6 +6086,10 @@ packages:
 
   /undici-types@6.13.0:
     resolution: {integrity: sha512-xtFJHudx8S2DSoujjMd1WeWvn7KKWFRESZTMeL1RptAYERu29D6jphMjjY+vn96jvN3kVPDNxU/E13VTaXj6jg==}
+    dev: true
+
+  /undici-types@6.19.6:
+    resolution: {integrity: sha512-e/vggGopEfTKSvj4ihnOLTsqhrKRN3LeO6qSN/GxohhuRv8qH9bNQ4B8W7e/vFL+0XTnmHPB4/kegunZGA4Org==}
     dev: true
 
   /unicode-emoji-modifier-base@1.0.0:

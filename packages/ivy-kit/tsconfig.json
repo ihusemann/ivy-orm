@@ -1,8 +1,0 @@
-{
-  "extends": "@total-typescript/tsconfig/bundler/no-dom/library-monorepo",
-  "compilerOptions": {
-    "verbatimModuleSyntax": false,
-    "module": "CommonJS",
-    "outDir": "./dist"
-  }
-}
