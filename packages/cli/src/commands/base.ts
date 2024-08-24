@@ -3,6 +3,7 @@ import chalk from "chalk";
 import { cosmiconfig } from "cosmiconfig";
 import path from "path";
 import { configSchema } from "src/util/config";
+import { ensureCredential } from "src/util/credential";
 import { readSchema } from "src/util/schema";
 import { ZodError } from "zod";
 
@@ -27,27 +28,28 @@ export async function baseTransform(opts: TypeOf<typeof baseOptions>) {
       `Configuration is missing.  Please add ${chalk.green("ivy-kit.config.ts")} to your project root.`
     );
 
-  try {
-    const config = configSchema.parse(result.config);
+  const configSchemaResult = configSchema.safeParse(result.config);
 
-    const schema = opts.schema || config.schema;
-
-    // read & parse schema
-    const schemaExports = readSchema(path.join(opts.cwd, schema));
-
-    return {
-      ...opts,
-      ...config,
-      schema,
-      schemaExports,
-    };
-  } catch (e) {
-    if (e instanceof ZodError) {
-      const message = `Invalid configuration at '${result.filepath}'.\nField(s) ${Object.keys(
-        e.flatten().fieldErrors
-      ).join(", ")} are invalid.`;
-      throw new Error(chalk.red(message));
-    }
-    throw new Error("Could not parse configuration.");
+  if (!configSchemaResult.success) {
+    const message = `Invalid configuration at '${result.filepath}'.\nField(s) ${Object.keys(
+      configSchemaResult.error.flatten().fieldErrors
+    ).join(", ")} are invalid.`;
+    throw new Error(chalk.red(message));
   }
+
+  const config = configSchemaResult.data;
+
+  await ensureCredential(config.credential);
+
+  const schema = opts.schema || config.schema;
+
+  // read & parse schema
+  const schemaExports = readSchema(path.join(opts.cwd, schema));
+
+  return {
+    ...opts,
+    ...config,
+    schema,
+    schemaExports,
+  };
 }

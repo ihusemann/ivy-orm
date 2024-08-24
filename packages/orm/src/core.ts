@@ -288,7 +288,11 @@ function mergeArraysUniqueByProperty<T extends object>(
 }
 
 export function isIndexer(indexer: any): indexer is AnyIndexer {
-  return !!(indexer.name && indexer.targetIndexName && indexer.dataSourceName);
+  return !!(
+    indexer.name &&
+    indexer.targetIndexName &&
+    indexer.dataSourceName != null
+  );
 }
 
 export class Indexer<

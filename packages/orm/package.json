@@ -1,6 +1,6 @@
 {
   "name": "ivy-orm",
-  "version": "0.0.8",
+  "version": "0.0.17",
   "description": "",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
@@ -9,7 +9,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "rm -rf dist && tsup src/index.ts --format cjs,esm --dts",
+    "build": "rm -rf dist && tsup src/index.ts --format cjs,esm --dts --minify --external @azure/search-documents",
     "dev": "tsup src/index.ts --format cjs,esm --dts --watch",
     "lint": "tsc --noEmit",
     "pub:release": "pnpm build && pnpm publish --no-git-checks"
@@ -30,13 +30,9 @@
   },
   "license": "MIT",
   "devDependencies": {
-    "@azure/identity": "^4.1.0",
     "@azure/search-documents": "^12.0.0",
     "@total-typescript/tsconfig": "^1.0.4",
-    "@types/lodash": "^4.17.7",
-    "lodash": "^4.17.21",
     "tsup": "^8.0.2",
-    "tsx": "^4.16.2",
     "typescript": "^5.3.3"
   }
 }

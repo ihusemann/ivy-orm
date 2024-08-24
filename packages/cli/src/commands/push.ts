@@ -8,7 +8,6 @@ import {
 import { getExistingIndexes } from "src/util/ai-search";
 import { AnyIndex, AnyIndexer } from "ivy-orm";
 import chalk from "chalk";
-// import ora from "ora";
 
 export const push = command({
   name: "push",

@@ -29,26 +29,16 @@ export function readSchema(file: string): Schema {
     }
   });
 
+  if (indexes.length === 0 && indexers.length === 0) {
+    throw new Error(
+      `${chalk.bold.red("Error:")} at least one valid index or indexer must be defined.`
+    );
+  }
+
   const schema = {
     indexes: Object.fromEntries(indexes),
     indexers: Object.fromEntries(indexers),
   };
 
-  validateSchema(schema);
-
   return schema;
-}
-
-export function validateSchema({ indexes, indexers }: Schema): void {
-  if (Object.keys(indexes).length === 0) {
-    throw new Error(
-      `${chalk.bold.red("Error:")} schema file must define at least one index.`
-    );
-  }
-
-  if (Object.keys(indexers).length === 0) {
-    throw new Error(
-      `${chalk.bold.red("Error:")} schema file must define at least one indexer.`
-    );
-  }
 }

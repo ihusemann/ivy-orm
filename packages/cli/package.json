@@ -1,6 +1,6 @@
 {
   "name": "ivy-kit",
-  "version": "0.0.8",
+  "version": "0.0.18",
   "description": "",
   "bin": {
     "ivy-kit": "./dist/bin.cjs"
@@ -11,7 +11,7 @@
   "scripts": {
     "cli": "tsx ./src/bin.ts",
     "build": "rm -rf dist && pnpm build:cli && pnpm build:kit",
-    "build:cli": "esbuild --bundle src/bin.ts --platform=node --target=node16 --outfile=dist/bin.cjs --format=cjs --external:esbuild --external:fs --packages=external",
+    "build:cli": "esbuild --bundle src/bin.ts --platform=node --target=node16 --outfile=dist/bin.cjs --format=cjs --external:esbuild --external:fs ",
     "build:kit": "tsup src/index.ts --format cjs,esm --outDir dist --dts --minify --target esnext --external @azure/identity,zod,cosmiconfig,chalk",
     "pub:release": "pnpm build && pnpm publish --no-git-checks"
   },
@@ -29,6 +29,10 @@
     "cognitive"
   ],
   "author": "ihusemann",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ihusemann/ai-search-orm"
+  },
   "license": "MIT",
   "dependencies": {
     "@drizzle-team/brocli": "^0.10.1",
