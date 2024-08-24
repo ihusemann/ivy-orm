@@ -231,7 +231,7 @@ export class Index<
                 .map(([name]) => name),
             },
           ]
-        : undefined,
+        : [],
     };
   }
 }
