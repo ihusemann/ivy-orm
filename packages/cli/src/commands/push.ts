@@ -1,29 +1,34 @@
-import { command } from "@drizzle-team/brocli";
+import { boolean, command } from "@drizzle-team/brocli";
 import { baseOptions, baseTransform } from "./base";
 import prompts from "prompts";
-import {
-  SearchIndexClient,
-  SearchIndexerClient,
-} from "@azure/search-documents";
 import { getExistingIndexes } from "src/util/ai-search";
 import { AnyIndex, AnyIndexer } from "ivy-orm";
 import chalk from "chalk";
 
+const options = {
+  ...baseOptions,
+  force: boolean()
+    .alias("-f")
+    .default(false)
+    .desc("don't prompt to overwrite existing indexes/indexers/data sources."),
+};
+
 export const push = command({
   name: "push",
-  options: baseOptions,
-  transform: baseTransform,
+  options,
+  transform: baseTransform<typeof options>,
   handler: async ({
     schemaExports: { indexes, indexers },
     force,
     endpoint,
     credential,
+    searchIndexClient,
+    searchIndexerClient,
   }) => {
     // ---------------------
     // ----   INDEXES   ----
     // ---------------------
 
-    const searchIndexClient = new SearchIndexClient(endpoint, credential);
     const indexesResponsePromise = prompts({
       type: "multiselect",
       name: "indexes",
@@ -83,8 +88,6 @@ export const push = command({
     // ----------------------
     // ----   INDEXERS   ----
     // ----------------------
-
-    const searchIndexerClient = new SearchIndexerClient(endpoint, credential);
 
     const idxrResponsePromise = prompts({
       type: "multiselect",

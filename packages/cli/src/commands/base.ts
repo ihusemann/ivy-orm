@@ -1,3 +1,7 @@
+import {
+  SearchIndexClient,
+  SearchIndexerClient,
+} from "@azure/search-documents";
 import { boolean, string, TypeOf } from "@drizzle-team/brocli";
 import chalk from "chalk";
 import { cosmiconfig } from "cosmiconfig";
@@ -12,13 +16,11 @@ export const baseOptions = {
     "path to the schema file. overrides schema defined in ivy-kit.config.ts."
   ),
   cwd: string().desc("the working directory.").default(process.cwd()),
-  force: boolean()
-    .alias("-f")
-    .default(false)
-    .desc("don't prompt to overwrite existing indexes/indexers/data sources."),
 };
 
-export async function baseTransform(opts: TypeOf<typeof baseOptions>) {
+export async function baseTransform<T extends object = {}>(
+  opts: TypeOf<typeof baseOptions & T>
+) {
   // read & parse config
   const explorer = cosmiconfig("ivy-kit");
   const result = await explorer.search(opts.cwd);
@@ -46,10 +48,21 @@ export async function baseTransform(opts: TypeOf<typeof baseOptions>) {
   // read & parse schema
   const schemaExports = readSchema(path.join(opts.cwd, schema));
 
+  const searchIndexClient = new SearchIndexClient(
+    config.endpoint,
+    config.credential
+  );
+  const searchIndexerClient = new SearchIndexerClient(
+    config.endpoint,
+    config.credential
+  );
+
   return {
     ...opts,
     ...config,
     schema,
     schemaExports,
+    searchIndexClient,
+    searchIndexerClient,
   };
 }

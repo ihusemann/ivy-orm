@@ -1,6 +1,6 @@
 {
   "name": "ivy-kit",
-  "version": "0.0.18",
+  "version": "0.0.20",
   "description": "",
   "bin": {
     "ivy-kit": "./dist/bin.cjs"
@@ -8,6 +8,8 @@
   "files": [
     "dist"
   ],
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "scripts": {
     "cli": "tsx ./src/bin.ts",
     "build": "rm -rf dist && pnpm build:cli && pnpm build:kit",
@@ -37,36 +39,37 @@
   "dependencies": {
     "@drizzle-team/brocli": "^0.10.1",
     "@esbuild-kit/esm-loader": "^2.6.5",
+    "deep-diff": "^1.0.2",
     "esbuild": "^0.23.1",
-    "esbuild-register": "^3.6.0"
+    "esbuild-register": "^3.6.0",
+    "lodash": "^4.17.21"
   },
   "devDependencies": {
     "@azure/identity": "^4.1.0",
     "@azure/search-documents": "^12.0.0",
     "@total-typescript/tsconfig": "^1.0.4",
+    "@types/deep-diff": "^1.0.5",
+    "@types/json-diff": "^1.0.3",
+    "@types/lodash": "^4.17.7",
     "@types/node": "^22.4.1",
+    "@types/pluralize": "^0.0.33",
     "@types/prompts": "^2.4.9",
     "chalk": "^4.1.2",
     "cosmiconfig": "^9.0.0",
+    "date-fns": "^3.6.0",
     "esbuild": "^0.23.1",
+    "fast-deep-equal": "^3.1.3",
     "ivy-orm": "workspace:*",
+    "json-diff": "^1.0.6",
+    "jsondiffpatch": "^0.6.0",
     "ora": "^8.0.1",
+    "pluralize": "^8.0.0",
     "prompts": "^2.4.2",
+    "slugify": "^1.6.6",
     "tsup": "^8.0.2",
     "tsx": "^4.16.2",
     "typescript": "^5.3.3",
+    "unique-names-generator": "^4.7.1",
     "zod": "^3.23.8"
-  },
-  "exports": {
-    ".": {
-      "import": {
-        "types": "./dist/index.d.mts",
-        "default": "./dist/index.mjs"
-      },
-      "require": {
-        "types": "./dist/index.d.ts",
-        "default": "./dist/index.js"
-      }
-    }
   }
 }

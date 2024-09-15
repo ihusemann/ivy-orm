@@ -22,6 +22,16 @@ import type {
   DataChangeDetectionPolicy,
   SoftDeleteColumnDeletionDetectionPolicy,
   SearchIndexerDataSourceType,
+  LexicalAnalyzer,
+  CharFilter,
+  CorsOptions,
+  ScoringProfile,
+  SemanticSearch,
+  SimilarityAlgorithm,
+  TokenFilter,
+  SearchSuggester,
+  LexicalTokenizer,
+  VectorSearch,
 } from "@azure/search-documents";
 
 export type Collection<T> = Array<T>;
@@ -61,6 +71,22 @@ export abstract class FieldBuilder {
       this.config = {
         name,
         type,
+        analyzerName: undefined,
+        facetable: false,
+        filterable: false,
+        hidden: false,
+        indexAnalyzerName: undefined,
+        key: false,
+        searchable: false,
+        searchAnalyzerName: undefined,
+        sortable: false,
+        synonymMapNames: [],
+        vectorSearchDimensions: undefined,
+        vectorSearchProfileName: undefined,
+
+        // seemingly doesn't exist in docs?  But the index returned from Azure
+        // includes it.  Adding for differencing.
+        synonymMaps: [],
       } as SimpleField;
 
       return;
@@ -203,36 +229,58 @@ export function isIndex(index: any): index is AnyIndex {
 export class Index<
   TName extends string,
   TFields extends Record<string, FieldBuilder>,
-> {
+> implements SearchIndex
+{
   name: TName;
-  fields: TFields;
+  fields: SearchField[];
+  analyzers?: LexicalAnalyzer[] | undefined;
+  charFilters?: CharFilter[] | undefined;
+  corsOptions?: CorsOptions | undefined;
+  defaultScoringProfile?: string | undefined;
+  encryptionKey?: SearchResourceEncryptionKey | undefined;
+  etag?: string | undefined;
+  scoringProfiles?: ScoringProfile[] | undefined;
+  semanticSearch?: SemanticSearch | undefined;
+  similarity?: SimilarityAlgorithm | undefined;
+  tokenFilters?: TokenFilter[] | undefined;
+  suggesters?: SearchSuggester[] | undefined;
+  tokenizers?: LexicalTokenizer[] | undefined;
+  vectorSearch?: VectorSearch | undefined;
+
+  implicitFieldMappings: FieldMapping[];
 
   constructor(name: TName, fields: TFields) {
     this.name = name;
-    this.fields = fields;
+    this.fields = Object.entries(fields).map(([name, fieldBuilder]) =>
+      fieldBuilder["build"](name)
+    );
+    this.suggesters = Object.values(fields).some(
+      (field) => field["hasSuggester"]
+    )
+      ? [
+          {
+            name: "sg",
+            searchMode: "analyzingInfixMatching",
+            sourceFields: Object.entries(fields)
+              .filter(([_, fieldBuilder]) => fieldBuilder["hasSuggester"])
+              .map(([name]) => name),
+          },
+        ]
+      : [];
+
+    this.implicitFieldMappings = generateFieldMappings(fields);
+
+    this.analyzers = [];
+    this.charFilters = [];
+    this.tokenFilters = [];
+    this.scoringProfiles = [];
+    this.tokenizers = [];
   }
 
   /* @internal */
   private build(): SearchIndex {
-    return {
-      name: this.name,
-      fields: Object.entries(this.fields).map(([name, fieldBuilder]) =>
-        fieldBuilder["build"](name)
-      ),
-      suggesters: Object.values(this.fields).some(
-        (field) => field["hasSuggester"]
-      )
-        ? [
-            {
-              name: "sg",
-              searchMode: "analyzingInfixMatching",
-              sourceFields: Object.entries(this.fields)
-                .filter(([_, fieldBuilder]) => fieldBuilder["hasSuggester"])
-                .map(([name]) => name),
-            },
-          ]
-        : [],
-    };
+    const { implicitFieldMappings: _, ...index } = this;
+    return index;
   }
 }
 
@@ -329,12 +377,10 @@ export class Indexer<
       schedule,
     } = config;
 
-    const generatedFieldMappings = generateFieldMappings(targetIndex.fields);
-
     // deduplicate fieldMappings, prioritizing those set explicityly in `fieldMappings` in the indexer
     const fieldMappings = mergeArraysUniqueByProperty(
       userSetFieldMappings || [],
-      generatedFieldMappings,
+      targetIndex.implicitFieldMappings,
       "targetFieldName"
     );
 
