@@ -1,6 +1,6 @@
 {
   "name": "ivy-orm",
-  "version": "0.0.20",
+  "version": "0.0.21",
   "description": "",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
@@ -26,7 +26,7 @@
   "author": "ihusemann",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ihusemann/ai-search-orm"
+    "url": "https://github.com/ihusemann/ivy-orm"
   },
   "license": "MIT",
   "devDependencies": {

@@ -10,10 +10,9 @@ import {
   Resource,
 } from "src/util/migrate";
 import path from "path";
-import { writeFile, writeFileSync } from "fs";
+import { writeFileSync } from "fs";
 import { format } from "date-fns";
 import _ from "lodash";
-import { SearchIndex, SearchIndexer } from "@azure/search-documents";
 import {
   uniqueNamesGenerator,
   adjectives,
@@ -33,13 +32,6 @@ import chalk from "chalk";
  *  -> indexes in state not in schema need to be deleted from Azure
  *  -> indexes not in state in schema need to be created in Azure
  */
-
-async function listIndexNamesInState(adapater: Adapter) {
-  const resources = await adapater.listResources();
-  return resources
-    .filter(({ type }) => type === "index")
-    .map(({ name }) => name);
-}
 
 const options = {
   ...baseOptions,
@@ -61,7 +53,6 @@ export const generate = command({
   transform: baseTransform<typeof options>,
   handler: async ({
     adapter,
-    searchIndexClient,
     schemaExports: { indexes: schemaIndexes, indexers: schemaIndexers },
     out,
     cwd,
@@ -79,8 +70,6 @@ export const generate = command({
     // }
 
     // check for etag differences
-
-    const stateIndexNames = await listIndexNamesInState(adapter);
 
     const resources = await adapter.listResources();
 

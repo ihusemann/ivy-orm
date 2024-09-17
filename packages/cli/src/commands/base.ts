@@ -2,44 +2,27 @@ import {
   SearchIndexClient,
   SearchIndexerClient,
 } from "@azure/search-documents";
-import { boolean, string, TypeOf } from "@drizzle-team/brocli";
-import chalk from "chalk";
-import { cosmiconfig } from "cosmiconfig";
+import { string, TypeOf } from "@drizzle-team/brocli";
 import path from "path";
-import { configSchema } from "src/util/config";
+import { readConfig } from "src/util/config";
 import { ensureCredential } from "src/util/credential";
 import { readSchema } from "src/util/schema";
-import { ZodError } from "zod";
 
 export const baseOptions = {
   schema: string().desc(
-    "path to the schema file. overrides schema defined in ivy-kit.config.ts."
+    "path to the schema file. overrides schema defined in the config file."
   ),
   cwd: string().desc("the working directory.").default(process.cwd()),
+  config: string()
+    .desc('path to the config file.  Defaults to "ivy-kit.config.ts".')
+    .default("ivy-kit.config.ts"),
 };
 
 export async function baseTransform<T extends object = {}>(
   opts: TypeOf<typeof baseOptions & T>
 ) {
-  // read & parse config
-  const explorer = cosmiconfig("ivy-kit");
-  const result = await explorer.search(opts.cwd);
-
-  if (!result)
-    throw new Error(
-      `Configuration is missing.  Please add ${chalk.green("ivy-kit.config.ts")} to your project root.`
-    );
-
-  const configSchemaResult = configSchema.safeParse(result.config);
-
-  if (!configSchemaResult.success) {
-    const message = `Invalid configuration at '${result.filepath}'.\nField(s) ${Object.keys(
-      configSchemaResult.error.flatten().fieldErrors
-    ).join(", ")} are invalid.`;
-    throw new Error(chalk.red(message));
-  }
-
-  const config = configSchemaResult.data;
+  const configFilePath = path.join(opts.cwd, opts.config);
+  const config = readConfig(configFilePath);
 
   await ensureCredential(config.credential);
 

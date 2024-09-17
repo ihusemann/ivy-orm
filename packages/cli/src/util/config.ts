@@ -1,6 +1,8 @@
 import { type TokenCredential } from "@azure/identity";
 import { z } from "zod";
 import { Adapter } from "./migrate";
+import fs from "fs";
+import chalk from "chalk";
 
 function isTokenCredential(credential: any): credential is TokenCredential {
   try {
@@ -37,3 +39,26 @@ export type Config = {
    */
   out?: string;
 };
+
+export function readConfig(file: string) {
+  if (!fs.existsSync(file)) {
+    throw new Error(
+      `Configuration is missing.  Please add ${chalk.green("ivy-kit.config.ts")} to your project root.`
+    );
+  }
+
+  // TODO: check if this works with a db package
+
+  const configExports = require(file);
+
+  const result = configSchema.safeParse(configExports.default);
+
+  if (!result.success) {
+    const message = `Invalid configuration at '${file}'.\nField(s) ${Object.keys(
+      result.error.flatten().fieldErrors
+    ).join(", ")} are invalid.`;
+    throw new Error(chalk.red(message));
+  }
+
+  return result.data;
+}

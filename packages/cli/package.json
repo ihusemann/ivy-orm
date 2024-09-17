@@ -1,6 +1,6 @@
 {
   "name": "ivy-kit",
-  "version": "0.0.20",
+  "version": "0.0.21",
   "description": "",
   "bin": {
     "ivy-kit": "./dist/bin.cjs"
@@ -33,7 +33,7 @@
   "author": "ihusemann",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ihusemann/ai-search-orm"
+    "url": "https://github.com/ihusemann/ivy-orm"
   },
   "license": "MIT",
   "dependencies": {
@@ -55,7 +55,6 @@
     "@types/pluralize": "^0.0.33",
     "@types/prompts": "^2.4.9",
     "chalk": "^4.1.2",
-    "cosmiconfig": "^9.0.0",
     "date-fns": "^3.6.0",
     "esbuild": "^0.23.1",
     "fast-deep-equal": "^3.1.3",
