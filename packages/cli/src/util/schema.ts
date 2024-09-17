@@ -1,6 +1,5 @@
 import { AnyIndex, AnyIndexer, isIndex, isIndexer } from "ivy-orm";
 import fs from "fs";
-import chalk from "chalk";
 
 export type Schema = {
   indexes: Record<string, AnyIndex>;
@@ -28,12 +27,6 @@ export function readSchema(file: string): Schema {
       return;
     }
   });
-
-  if (indexes.length === 0 && indexers.length === 0) {
-    throw new Error(
-      `${chalk.bold.red("Error:")} at least one valid index or indexer must be defined.`
-    );
-  }
 
   const schema = {
     indexes: Object.fromEntries(indexes),

@@ -1,33 +1,22 @@
 import { SearchIndex, SearchIndexer } from "@azure/search-documents";
 import chalk from "chalk";
-import { applyChange } from "deep-diff";
 import { existsSync, mkdirSync } from "fs";
 import path from "path";
 import { z } from "zod";
-
-// export interface Resource {
-//   id: string;
-//   name: string;
-//   etag: string;
-//   type: string;
-// }
-
-// const resourceTypeSchema = z.enum(["index", "indexer", "datasource"]);
-
-// export type ResourceType = z.infer<typeof resourceTypeSchema>;
 
 const resourceSchema = z.object({
   id: z.string(),
   name: z.string(),
   etag: z.string(),
   type: z.string(),
+  checksum: z.string(),
 });
 
 const indexResourceSchema = resourceSchema.extend({
   type: z.literal("index"),
 });
 
-type IndexResource = z.infer<typeof indexResourceSchema>;
+export type IndexResource = z.infer<typeof indexResourceSchema>;
 
 export function isIndexResource(resource: any): resource is IndexResource {
   try {
@@ -42,7 +31,7 @@ const indexerResourceSchema = resourceSchema.extend({
   type: z.literal("indexer"),
 });
 
-type IndexerResource = z.infer<typeof indexerResourceSchema>;
+export type IndexerResource = z.infer<typeof indexerResourceSchema>;
 
 export function isIndexerResource(resource: any): resource is IndexerResource {
   try {
@@ -62,12 +51,6 @@ const migrationSchema = z.object({
 });
 
 export type Migration = z.infer<typeof migrationSchema>;
-
-// export interface Migration {
-//   id: string;
-//   name: string;
-//   appliedAt: Date;
-// }
 
 export interface Adapter {
   listResources(): Promise<Resource[]>;

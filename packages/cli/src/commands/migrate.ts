@@ -9,6 +9,7 @@ import {
 import path from "path";
 import chalk from "chalk";
 import pluralize from "pluralize";
+import { generateChecksum } from "src/util/checksum";
 
 export const migrate = command({
   name: "migrate",
@@ -91,6 +92,7 @@ export const migrate = command({
           name: index.name,
           type: "index",
           etag: createdIndex.etag,
+          checksum: generateChecksum(JSON.stringify(index)),
         });
 
         spinner.text = `Created index ${index.name}`;
@@ -130,6 +132,7 @@ export const migrate = command({
           name: indexer.name,
           type: "indexer",
           etag: createdIndexer.etag,
+          checksum: generateChecksum(JSON.stringify(indexer)),
         });
 
         spinner.text = `Created indexer ${indexer.name}`;

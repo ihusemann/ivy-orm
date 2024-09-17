@@ -1,6 +1,5 @@
 import { boolean, command } from "@drizzle-team/brocli";
 import { baseOptions, baseTransform } from "./base";
-import { Resource } from "src/util/migrate";
 import prompts from "prompts";
 import { SearchIndex } from "@azure/search-documents";
 import chalk from "chalk";
@@ -20,7 +19,7 @@ const options = {
 
 export const pull = command({
   name: "pull",
-  desc: "add existing indexes and indexers to the ivy-kit state.",
+  desc: "(beta) add existing indexes and indexers to the ivy-kit state.",
   options,
   transform: baseTransform<typeof options>,
   handler: async ({
@@ -110,6 +109,7 @@ export const pull = command({
       throw new Error("No indexers were selected. Aborting.");
     }
 
+    // TODO: handle checksums
     const updateStateSpinner = ora("Updating state...").start();
     const idxPromises = (
       idxResponse.indexes as { name: string; etag: string }[]
@@ -117,6 +117,7 @@ export const pull = command({
       adapter.createResource({
         type: "index",
         ...index,
+        checksum: "",
       })
     );
 
@@ -127,6 +128,7 @@ export const pull = command({
         type: "indexer",
         name,
         etag,
+        checksum: "",
       })
     );
     try {
