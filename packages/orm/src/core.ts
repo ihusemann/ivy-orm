@@ -438,7 +438,7 @@ export function isDataSource(
   return !!dataSource.name && isValidDataSourceType(dataSource.type);
 }
 
-export class DataSourceConnection<
+class DataSourceConnection<
   TName extends string,
   TType extends SearchIndexerDataSourceType,
   TConfig extends Omit<SearchIndexerDataSourceConnection, "name" | "type">,
@@ -479,6 +479,11 @@ export class DataSourceConnection<
     this.encryptionKey = encryptionKey;
     this.etag = etag;
   }
+
+  /* @internal */
+  private build(): SearchIndexerDataSourceConnection {
+    return this;
+  }
 }
 
 export type AnyDataSourceConnection = DataSourceConnection<
@@ -486,6 +491,7 @@ export type AnyDataSourceConnection = DataSourceConnection<
   SearchIndexerDataSourceType,
   Omit<SearchIndexerDataSourceConnection, "name" | "type">
 >;
+
 export function dataSource<
   TName extends string,
   TType extends SearchIndexerDataSourceType,

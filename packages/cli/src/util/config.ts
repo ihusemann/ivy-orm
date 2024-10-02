@@ -24,7 +24,7 @@ export const configSchema = z.object({
   schema: z.string().optional().default("search/indexes.ts"),
   endpoint: z.string().url(),
   credential: z.any().refine(isTokenCredential),
-  adapter: z.any().refine(isAdapter),
+  adapter: z.any().refine(isAdapter).optional(),
   out: z.string().optional().default("migrations"),
 });
 
@@ -32,7 +32,7 @@ export type Config = {
   schema?: string;
   endpoint: string;
   credential: TokenCredential;
-  adapter: Adapter;
+  adapter?: Adapter;
 
   /**
    * migrations output directory path, relative to the schema directory

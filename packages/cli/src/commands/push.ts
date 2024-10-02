@@ -2,7 +2,7 @@ import { boolean, command } from "@drizzle-team/brocli";
 import { baseOptions, baseTransform } from "./base";
 import prompts from "prompts";
 import { getExistingIndexes } from "src/util/ai-search";
-import { AnyIndex, AnyIndexer } from "ivy-orm";
+import { AnyDataSourceConnection, AnyIndex, AnyIndexer } from "ivy-orm";
 import chalk from "chalk";
 
 const options = {
@@ -18,17 +18,75 @@ export const push = command({
   options,
   transform: baseTransform<typeof options>,
   handler: async ({
-    schemaExports: { indexes, indexers },
+    schemaExports: { indexes, indexers, dataSources },
     force,
     endpoint,
     credential,
     searchIndexClient,
     searchIndexerClient,
   }) => {
+    const ora = (await import("ora")).default;
+
+    const dataSourcesPrompt = await prompts({
+      type: "multiselect",
+      name: "dataSources",
+      message: "Which indexes would you like to create/update?",
+      hint: "Space to select. A to toggle all. Enter to submit.",
+      instructions: false,
+      choices: Object.entries(dataSources).map(([name, dataSource]) => ({
+        title: name,
+        description: dataSource.name,
+        value: dataSource,
+      })),
+    });
+
+    const dataSourcesToCreate =
+      dataSourcesPrompt.dataSources as AnyDataSourceConnection[];
+
+    const existingDataSources =
+      await searchIndexerClient.listDataSourceConnectionsNames();
+
+    if (!force) {
+      const dataSourcesToOverwrite = dataSourcesToCreate.filter(({ name }) =>
+        existingDataSources.includes(name)
+      );
+
+      if (dataSourcesToOverwrite.length > 0) {
+        const confirm = await prompts({
+          type: "confirm",
+          name: "overwrite",
+          message: `This operation will overwrite ${dataSourcesToOverwrite.length > 1 ? "indexes" : "index"} ${dataSourcesToOverwrite.map(({ name }) => chalk.green(name)).join(", ")}.  Continue?`,
+        });
+
+        if (!confirm.overwrite) process.exit(0);
+      }
+    }
+
+    const createDataSourcesSpinner = ora("Creating data sources...").start();
+
+    for await (const dataSource of dataSourcesToCreate) {
+      if (existingDataSources.includes(dataSource.name)) {
+        createDataSourcesSpinner.text = `Deleting data source ${dataSource.name}`;
+        await searchIndexerClient.deleteDataSourceConnection(dataSource.name);
+      }
+
+      createDataSourcesSpinner.text = `Creating data source ${dataSource.name}`;
+
+      await searchIndexerClient.createDataSourceConnection(dataSource);
+    }
+
+    createDataSourcesSpinner.text = "Created data sources";
+    createDataSourcesSpinner.succeed();
+
     // ---------------------
     // ----   INDEXES   ----
     // ---------------------
 
+    /**
+     * 1. select resources to create
+     * 2. check for overwrite
+     * 3. prompt if overwriting
+     */
     const indexesResponsePromise = prompts({
       type: "multiselect",
       name: "indexes",
@@ -49,7 +107,7 @@ export const push = command({
       getExistingIndexesPromise,
     ]);
 
-    const ora = (await import("ora")).default;
+    console.log(indexesResponse);
 
     // confirm overwrite
     if (!force) {

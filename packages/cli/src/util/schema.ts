@@ -1,9 +1,17 @@
-import { AnyIndex, AnyIndexer, isIndex, isIndexer } from "ivy-orm";
+import {
+  AnyDataSourceConnection,
+  AnyIndex,
+  AnyIndexer,
+  isDataSource,
+  isIndex,
+  isIndexer,
+} from "ivy-orm";
 import fs from "fs";
 
 export type Schema = {
   indexes: Record<string, AnyIndex>;
   indexers: Record<string, AnyIndexer>;
+  dataSources: Record<string, AnyDataSourceConnection>;
 };
 
 export function readSchema(file: string): Schema {
@@ -13,6 +21,7 @@ export function readSchema(file: string): Schema {
 
   const indexes: [string, AnyIndex][] = [];
   const indexers: [string, AnyIndexer][] = [];
+  const dataSources: [string, AnyDataSourceConnection][] = [];
 
   const schemaExports = require(file);
 
@@ -26,11 +35,17 @@ export function readSchema(file: string): Schema {
       indexes.push([name, i]);
       return;
     }
+
+    if (isDataSource(i)) {
+      dataSources.push([name, i]);
+      return;
+    }
   });
 
   const schema = {
     indexes: Object.fromEntries(indexes),
     indexers: Object.fromEntries(indexers),
+    dataSources: Object.fromEntries(dataSources),
   };
 
   return schema;

@@ -1,10 +1,12 @@
 import { command, string } from "@drizzle-team/brocli";
 import { baseOptions, baseTransform } from "./base";
-import { AnyIndex, AnyIndexer } from "ivy-orm";
+import { AnyDataSourceConnection, AnyIndex, AnyIndexer } from "ivy-orm";
 import {
+  DataSourceResource,
   ensureMigrationsDirectory,
   IndexerResource,
   IndexResource,
+  isDataSourceResource,
   isIndexerResource,
   isIndexResource,
   MigrationFile,
@@ -20,20 +22,18 @@ import {
 } from "unique-names-generator";
 import slugify from "slugify";
 import chalk from "chalk";
-import { generateChecksum } from "src/util/checksum";
-import { SearchIndex, SearchIndexer } from "@azure/search-documents";
-
-/**
- * 1. fetch all existing indexes
- * 2. compare existing index etags against stored - any discrepancies represent an index that needs to be redeployed
- * 3. compare all schema indexes against the version in its latest migration.  differences represent an index that needs to be redeployed.
- */
-
-/**
- * compare indexes in the schema vs. stored state.
- *  -> indexes in state not in schema need to be deleted from Azure
- *  -> indexes not in state in schema need to be created in Azure
- */
+import {
+  generateDataSourceChecksum,
+  generateIndexChecksum,
+  generateIndexerChecksum,
+} from "src/util/checksum";
+import { ensureAdapter } from "src/util/adapter";
+import ora from "ora";
+import {
+  SearchIndex,
+  SearchIndexer,
+  SearchIndexerDataSourceConnection,
+} from "@azure/search-documents";
 
 const options = {
   ...baseOptions,
@@ -48,6 +48,106 @@ const options = {
     ),
 };
 
+type ResourceType = "index" | "indexer" | "dataSource";
+
+interface ResourceHandlers<TSchema, TState, TBuilt> {
+  /**
+   * type guard function
+   */
+  isResource: (resource: any) => resource is TState;
+
+  buildFn: (schemaResource: TSchema) => TBuilt;
+
+  /**
+   * function that returns the name of the resource stored in ivy-kit state
+   */
+  getName: (resource: TSchema | TState) => string;
+
+  /**
+   * function that returns the checksum of the resource stored in ivy-kit state
+   */
+  getChecksum: (resource: TState) => string;
+
+  generateChecksum: (built: TBuilt) => string;
+
+  resourceType: ResourceType;
+}
+
+function computeMigrationActions<TSchema, TState, TBuilt>(
+  schemaResources: TSchema[],
+  stateResources: TState[],
+  handlers: ResourceHandlers<TSchema, TState, TBuilt>
+) {
+  const { buildFn, getName, getChecksum } = handlers;
+
+  const create = _.differenceBy(schemaResources, stateResources, getName);
+  const toDelete = _.differenceBy(stateResources, schemaResources, getName);
+
+  const modified = _.intersectionBy(schemaResources, stateResources, getName)
+    // filter to resources whose checksum doesn't match that stored in state
+    .filter((schemaResource) => {
+      const name = getName(schemaResource);
+      const builtResource = buildFn(schemaResource);
+      const checksum = handlers.generateChecksum(builtResource);
+
+      const stateResource = stateResources.find((sr) => getName(sr) === name);
+
+      if (!stateResource) {
+        throw new Error(
+          `${chalk.red.bold("Error:")} State resource not found for ${name}.`
+        );
+      }
+
+      const savedChecksum = getChecksum(stateResource);
+
+      if (!savedChecksum) {
+        throw new Error(
+          `${chalk.red.bold("Error:")} Missing checksum for resource ${name}.`
+        );
+      }
+
+      return checksum !== savedChecksum;
+    })
+    // "link" the schema resource to the associated out-of-date resource in the state
+    .map((schemaResource) => {
+      const stateResource = stateResources.find(
+        (sr) => getName(sr) === getName(schemaResource)
+      );
+      return [buildFn(schemaResource), stateResource] as [TBuilt, TState];
+    });
+
+  return {
+    create,
+    delete: toDelete,
+    update: modified,
+  };
+}
+
+function displayMigrationChanges(
+  migrationPart: { create: any[]; delete: any[] },
+  resourceType: ResourceType,
+  updatedResources: any[]
+) {
+  if (migrationPart.create.length > 0 || migrationPart.delete.length > 0) {
+    console.log(`\n${chalk.cyan(`${resourceType}s:`)}`);
+
+    migrationPart.delete.forEach(({ name }: { name: string }) => {
+      console.log(`  ${chalk.redBright("-")} ${name}`);
+    });
+
+    migrationPart.create.forEach(({ name }: { name: string }) => {
+      const isModified = updatedResources.some(
+        (resource) => resource.name === name
+      );
+      console.log(
+        `  ${chalk.greenBright("+")} ${name} ${
+          isModified ? chalk.gray("(modified)") : ""
+        }`
+      );
+    });
+  }
+}
+
 export const generate = command({
   name: "generate",
   desc: "Create a migration file that can be used to apply migrations locally or in release pipelines.",
@@ -55,119 +155,81 @@ export const generate = command({
   transform: baseTransform<typeof options>,
   handler: async ({
     adapter,
-    schemaExports: { indexes: schemaIndexes, indexers: schemaIndexers },
+    schemaExports: {
+      indexes: schemaIndexes,
+      indexers: schemaIndexers,
+      dataSources: schemaDataSources,
+    },
     out,
     cwd,
     schema,
     name,
   }) => {
-    const ora = (await import("ora")).default;
+    ensureAdapter(adapter);
 
     const spinner = ora("Generating migration...").start();
-    // const indexIterator = searchIndexClient.listIndexes();
-
-    // const azureIndexes = [];
-    // for await (const index of indexIterator) {
-    //   azureIndexes.push(index);
-    // }
-
-    // check for etag differences
 
     const resources = await adapter.listResources();
 
-    const stateIndexes = resources.filter((i) => isIndexResource(i));
-    const stateIndexers = resources.filter((i) => isIndexerResource(i));
+    const stateIndexes = resources.filter(isIndexResource);
+    const stateIndexers = resources.filter(isIndexerResource);
+    const stateDataSources = resources.filter(isDataSourceResource);
 
-    // find indexes that exist in schema but not in state
-    const createIndexes: AnyIndex[] = _.differenceBy(
+    const indexHandlers: ResourceHandlers<
+      AnyIndex,
+      IndexResource,
+      SearchIndex
+    > = {
+      isResource: isIndexResource,
+      buildFn: (index) => index["build"](),
+      getName: (resource) => resource.name,
+      getChecksum: (resource) => resource.checksum,
+      generateChecksum: (index) => generateIndexChecksum(index),
+      resourceType: "index",
+    };
+
+    const indexerHandlers: ResourceHandlers<
+      AnyIndexer,
+      IndexerResource,
+      SearchIndexer
+    > = {
+      isResource: isIndexerResource,
+      buildFn: (indexer) => indexer["build"](),
+      getName: (resource) => resource.name,
+      getChecksum: (resource) => resource.checksum,
+      generateChecksum: (indexer) => generateIndexerChecksum(indexer),
+      resourceType: "indexer",
+    };
+
+    const dataSourceHandlers: ResourceHandlers<
+      AnyDataSourceConnection,
+      DataSourceResource,
+      SearchIndexerDataSourceConnection
+    > = {
+      isResource: isDataSourceResource,
+      buildFn: (dataSource) => dataSource["build"](),
+      getName: (resource) => resource.name,
+      getChecksum: (resource) => resource.checksum,
+      generateChecksum: (dataSource) => generateDataSourceChecksum(dataSource),
+      resourceType: "dataSource",
+    };
+
+    const indexActions = computeMigrationActions(
       Object.values(schemaIndexes),
       stateIndexes,
-      "name"
+      indexHandlers
     );
 
-    // find indexes that exist in state but not schema
-    const deleteIndexes: IndexResource[] = _.differenceBy(
-      stateIndexes,
-      Object.values(schemaIndexes),
-      "name"
-    );
-
-    // find indexers that exist in schema but not in state
-    const createIndexers: AnyIndexer[] = _.differenceBy(
+    const indexerActions = computeMigrationActions(
       Object.values(schemaIndexers),
       stateIndexers,
-      "name"
+      indexerHandlers
     );
 
-    // find indexers that exist in state but not schema
-    const deleteIndexers: IndexerResource[] = _.differenceBy(
-      stateIndexers,
-      Object.values(schemaIndexers),
-      "name"
-    );
-
-    const modifiedIndexes = _.intersectionBy(
-      Object.values(schemaIndexes),
-      stateIndexes,
-      "name"
-    )
-      .filter((idx) => {
-        const checksum = generateChecksum(JSON.stringify(idx["build"]()));
-        const savedChecksum = stateIndexes.find(
-          ({ name }) => name === idx.name
-        )?.checksum;
-
-        if (!savedChecksum)
-          throw new Error(
-            `${chalk.red.bold("Error:")} Unexpectedly missing checksum for index ${idx.name}.`
-          );
-
-        return checksum !== savedChecksum;
-      })
-      .map((idx) => {
-        const stateIndex = stateIndexes.find(({ name }) => name === idx.name);
-        return [idx["build"](), stateIndex] as [SearchIndex, IndexResource];
-      });
-
-    const deleteIndexesForUpdate: IndexResource[] = modifiedIndexes.map(
-      ([_, index]) => index
-    );
-
-    const createIndexesForUpdate: SearchIndex[] = modifiedIndexes.map(
-      ([searchIndex]) => searchIndex
-    );
-
-    const modifiedIndexers: [SearchIndexer, IndexerResource][] =
-      _.intersectionBy(Object.values(schemaIndexers), stateIndexers, "name")
-        .filter((idxr) => {
-          const checksum = generateChecksum(JSON.stringify(idxr["build"]()));
-          const savedChecksum = stateIndexers.find(
-            ({ name }) => name === idxr.name
-          )?.checksum;
-
-          if (!savedChecksum)
-            throw new Error(
-              `${chalk.red.bold("Error:")} Unexpectedly missing checksum for index ${idxr.name}.`
-            );
-
-          return checksum !== savedChecksum;
-        })
-        .map((idxr) => {
-          const stateIndexer = stateIndexers.find(
-            ({ name }) => name === idxr.name
-          );
-          return [idxr["build"](), stateIndexer] as [
-            SearchIndexer,
-            IndexerResource,
-          ];
-        });
-
-    const deleteIndexersForUpdate: IndexerResource[] = modifiedIndexers.map(
-      ([_, indexer]) => indexer
-    );
-
-    const createIndexersForUpdate: SearchIndexer[] = modifiedIndexers.map(
-      ([searchIndexer]) => searchIndexer
+    const dataSourceActions = computeMigrationActions(
+      Object.values(schemaDataSources),
+      stateDataSources,
+      dataSourceHandlers
     );
 
     spinner.stop();
@@ -175,17 +237,33 @@ export const generate = command({
     const migration: MigrationFile = {
       indexes: {
         create: [
-          ...createIndexes.map((idx) => idx["build"]()),
-          ...createIndexesForUpdate,
+          ...indexActions.create.map((idx) => idx["build"]()),
+          ...indexActions.update.map(([built]) => built),
         ],
-        delete: [...deleteIndexes, ...deleteIndexesForUpdate],
+        delete: [
+          ...indexActions.delete,
+          ...indexActions.update.map(([, state]) => state),
+        ],
       },
       indexers: {
         create: [
-          ...createIndexers.map((idxr) => idxr["build"]()),
-          ...createIndexersForUpdate,
+          ...indexerActions.create.map((idxr) => idxr["build"]()),
+          ...indexerActions.update.map(([built]) => built),
         ],
-        delete: [...deleteIndexers, ...deleteIndexersForUpdate],
+        delete: [
+          ...indexerActions.delete,
+          ...indexerActions.update.map(([, state]) => state),
+        ],
+      },
+      dataSources: {
+        create: [
+          ...dataSourceActions.create.map((src) => src["build"]()),
+          ...dataSourceActions.update.map(([built]) => built),
+        ],
+        delete: [
+          ...dataSourceActions.delete,
+          ...dataSourceActions.update.map(([, state]) => state),
+        ],
       },
     };
 
@@ -196,46 +274,34 @@ export const generate = command({
       migration.indexers.delete.length === 0
     ) {
       ora(`No changes to apply.`).succeed();
-      process.exit(0);
+      return; // Return early instead of process.exit(0)
     }
 
     const dir = ensureMigrationsDirectory(cwd, schema, out);
-    const filename = `${format(new Date(), "yyyyMMddHHmmss")}-${slugify(name)}.json`;
+    const filename = `${format(new Date(), "yyyyMMddHHmmss")}-${slugify(
+      name
+    )}.json`;
 
     writeFileSync(path.join(dir, filename), JSON.stringify(migration, null, 2));
 
     ora(`Done! Created migration file ${chalk.green(filename)}`).succeed();
 
-    if (
-      migration.indexes.create.length > 0 ||
-      migration.indexes.delete.length > 0
-    ) {
-      console.log(`\n${chalk.cyan("indexes:")}`);
-      migration.indexes.delete.forEach(({ name }) => {
-        console.log(`  ${chalk.redBright("-")} ${name}`);
-      });
+    displayMigrationChanges(
+      migration.indexes,
+      "index",
+      indexActions.update.map(([built]) => built)
+    );
 
-      migration.indexes.create.forEach(({ name }) => {
-        console.log(
-          `  ${chalk.greenBright("+")} ${name} ${createIndexesForUpdate.findIndex(({ name }) => name === name) !== -1 ? chalk.gray("(modified)") : ""}`
-        );
-      });
-    }
+    displayMigrationChanges(
+      migration.indexers,
+      "indexer",
+      indexerActions.update.map(([built]) => built)
+    );
 
-    if (
-      migration.indexers.create.length > 0 ||
-      migration.indexers.delete.length > 0
-    ) {
-      console.log(`\n${chalk.cyan("indexers:")}`);
-      migration.indexers.delete.forEach(({ name }) => {
-        console.log(`  ${chalk.redBright("-")} ${name}`);
-      });
-
-      migration.indexers.create.forEach(({ name }) => {
-        console.log(
-          `  ${chalk.greenBright("+")} ${name} ${createIndexersForUpdate.findIndex(({ name }) => name === name) !== -1 ? chalk.gray("(modified)") : ""}`
-        );
-      });
-    }
+    displayMigrationChanges(
+      migration.dataSources,
+      "dataSource",
+      dataSourceActions.update.map(([built]) => built)
+    );
   },
 });

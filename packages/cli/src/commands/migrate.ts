@@ -2,14 +2,83 @@ import { command } from "@drizzle-team/brocli";
 import { baseOptions, baseTransform } from "./base";
 import { readdirSync, readFileSync } from "fs";
 import {
-  ensureETagsMatch,
   ensureMigrationsDirectory,
   migrationFileSchema,
+  Resource,
 } from "src/util/migrate";
 import path from "path";
 import chalk from "chalk";
 import pluralize from "pluralize";
-import { generateChecksum } from "src/util/checksum";
+import {
+  generateIndexChecksum,
+  generateIndexerChecksum,
+} from "src/util/checksum";
+import { ensureAdapter } from "src/util/adapter";
+import {
+  SearchIndex,
+  SearchIndexClient,
+  SearchIndexer,
+  SearchIndexerClient,
+} from "@azure/search-documents";
+
+type ResourceType = "index" | "indexer" | "dataSource";
+
+interface ResourceHandlers<TCreateResource, TClient> {
+  resourceType: ResourceType;
+  getName: (resource: TCreateResource | Resource) => string;
+  getId: (resource: Resource) => string;
+  getLiveResource: (client: TClient, name: string) => Promise<TCreateResource>;
+  deleteResource: (client: TClient, name: string) => Promise<void>;
+  createResource: (
+    client: TClient,
+    resource: TCreateResource
+  ) => Promise<TCreateResource>;
+  stateDeleteResource: (id: string) => Promise<void>;
+  stateCreateResource: (resource: TCreateResource) => Promise<Resource>;
+}
+
+async function processDeleteOperations<TClient>(
+  client: TClient,
+  resources: Resource[],
+  handlers: ResourceHandlers<any, TClient>
+) {
+  const ora = (await import("ora")).default;
+
+  for (const resource of resources) {
+    const name = handlers.getName(resource);
+    const spinner = ora(`Deleting ${handlers.resourceType} ${name}...`).start();
+    try {
+      await handlers.deleteResource(client, name);
+      await handlers.stateDeleteResource(handlers.getId(resource));
+      spinner.succeed(`Deleted ${handlers.resourceType} ${name}`);
+    } catch (error) {
+      spinner.fail();
+      throw error;
+    }
+  }
+}
+
+async function processCreateOperations<TCreateResource, TClient>(
+  client: TClient,
+  resources: TCreateResource[],
+  handlers: ResourceHandlers<TCreateResource, TClient>
+) {
+  const ora = (await import("ora")).default;
+
+  for (const resource of resources) {
+    const name = handlers.getName(resource);
+    const spinner = ora(`Creating ${handlers.resourceType} ${name}...`).start();
+    try {
+      await handlers.createResource(client, resource);
+
+      await handlers.stateCreateResource(resource);
+      spinner.succeed(`Created ${handlers.resourceType} ${name}`);
+    } catch (error) {
+      spinner.fail();
+      throw error;
+    }
+  }
+}
 
 export const migrate = command({
   name: "migrate",
@@ -23,6 +92,8 @@ export const migrate = command({
     searchIndexClient,
     searchIndexerClient,
   }) => {
+    ensureAdapter(adapter);
+
     const ora = (await import("ora")).default;
 
     const loadingSpinner = ora("Loading migrations...").start();
@@ -43,11 +114,11 @@ export const migrate = command({
 
     if (pendingMigrations.length === 0) {
       console.log("No pending migrations found.  Aborting.");
-      process.exit(0);
+      return;
     }
 
     console.log(
-      `\n${pendingMigrations.length} ${pluralize("migrations", pendingMigrations.length)} found`
+      `\n${pendingMigrations.length} ${pluralize("migration", pendingMigrations.length)} found`
     );
 
     for await (const migrationName of pendingMigrations) {
@@ -59,85 +130,68 @@ export const migrate = command({
 
       console.log(`\nApplying migration \`${chalk.green(migrationName)}\`\n`);
 
-      for await (const index of migration.indexes.delete) {
-        const spinner = ora(`Deleting index ${index.name}...`).start();
-        const liveIndex = await searchIndexClient.getIndex(index.name);
+      const indexHandlers: ResourceHandlers<SearchIndex, SearchIndexClient> = {
+        resourceType: "index",
+        getName: (resource) => resource.name,
+        getId: (resource) => resource.id,
+        getLiveResource: (client, name) => client.getIndex(name),
+        deleteResource: (client, name) => client.deleteIndex(name),
+        createResource: (client, resource) => client.createIndex(resource),
+        stateDeleteResource: (id) => adapter.deleteResource(id),
+        stateCreateResource: (resource) =>
+          adapter.createResource({
+            name: resource.name,
+            type: "index",
+            checksum: generateIndexChecksum(resource),
+          }),
+      };
 
-        if (!ensureETagsMatch(liveIndex.etag, index.etag)) {
-          spinner.fail();
-          throw new Error(
-            `${chalk.red.bold("Error:")} could not delete index ${index.name} due to etag mismatch.`
-          );
-        }
+      await processDeleteOperations(
+        searchIndexClient,
+        migration.indexes.delete,
+        indexHandlers
+      );
 
-        await searchIndexClient.deleteIndex(index.name);
+      await processCreateOperations(
+        searchIndexClient,
+        migration.indexes.create,
+        indexHandlers
+      );
 
-        await adapter.deleteResource(index.id);
-        spinner.text = `Deleted index ${index.name}`;
-        spinner.succeed();
-      }
+      const indexerHandlers: ResourceHandlers<
+        SearchIndexer,
+        SearchIndexerClient
+      > = {
+        resourceType: "index",
+        getName: (resource) => resource.name,
+        getId: (resource) => resource.id,
+        getLiveResource: (client, name) => client.getIndexer(name),
+        deleteResource: (client, name) => client.deleteIndexer(name),
+        createResource: async (client, resource) => {
+          const res = await client.createIndexer(resource);
+          console.log("CREATED INDEXER W/ ETAG", res.etag);
+          return res;
+        },
+        stateDeleteResource: (id) => adapter.deleteResource(id),
+        stateCreateResource: (resource) =>
+          adapter.createResource({
+            name: resource.name,
+            type: "indexer",
+            checksum: generateIndexerChecksum(resource),
+          }),
+      };
 
-      for await (const index of migration.indexes.create) {
-        const spinner = ora(`Creating index ${index.name}`).start();
-        const createdIndex = await searchIndexClient.createIndex(index);
+      await processDeleteOperations(
+        searchIndexerClient,
+        migration.indexers.delete,
+        indexerHandlers
+      );
 
-        if (!createdIndex.etag) {
-          spinner.fail();
-          throw new Error(
-            `${chalk.bold.red("Error:")} did not receive etag from AI Search.`
-          );
-        }
-
-        await adapter.createResource({
-          name: index.name,
-          type: "index",
-          etag: createdIndex.etag,
-          checksum: generateChecksum(JSON.stringify(index)),
-        });
-
-        spinner.text = `Created index ${index.name}`;
-        spinner.succeed();
-      }
-
-      for await (const indexer of migration.indexers.delete) {
-        const spinner = ora(`Deleting indexer ${indexer.name}...`).start();
-        const liveIndexer = await searchIndexerClient.getIndexer(indexer.name);
-
-        if (!ensureETagsMatch(liveIndexer.etag, indexer.etag)) {
-          spinner.fail();
-          throw new Error(
-            `${chalk.red.bold("Error:")} could not delete index ${indexer.name} due to etag mismatch.`
-          );
-        }
-
-        await searchIndexerClient.deleteIndexer(indexer.name);
-
-        await adapter.deleteResource(indexer.id);
-        spinner.text = `Deleted index ${indexer.name}`;
-        spinner.succeed();
-      }
-
-      for await (const indexer of migration.indexers.create) {
-        const spinner = ora(`Creating indexer ${indexer.name}`).start();
-        const createdIndexer = await searchIndexerClient.createIndexer(indexer);
-
-        if (!createdIndexer.etag) {
-          spinner.fail();
-          throw new Error(
-            `${chalk.bold.red("Error:")} did not receive etag from AI Search.`
-          );
-        }
-
-        await adapter.createResource({
-          name: indexer.name,
-          type: "indexer",
-          etag: createdIndexer.etag,
-          checksum: generateChecksum(JSON.stringify(indexer)),
-        });
-
-        spinner.text = `Created indexer ${indexer.name}`;
-        spinner.succeed();
-      }
+      await processCreateOperations(
+        searchIndexerClient,
+        migration.indexers.create,
+        indexerHandlers
+      );
 
       try {
         await adapter.applyMigration(migrationName);

@@ -1,4 +1,8 @@
-import { SearchIndex, SearchIndexer } from "@azure/search-documents";
+import {
+  SearchIndex,
+  SearchIndexer,
+  SearchIndexerDataSourceConnection,
+} from "@azure/search-documents";
 import chalk from "chalk";
 import { existsSync, mkdirSync } from "fs";
 import path from "path";
@@ -7,7 +11,7 @@ import { z } from "zod";
 const resourceSchema = z.object({
   id: z.string(),
   name: z.string(),
-  etag: z.string(),
+  etag: z.string().nullish(),
   type: z.string(),
   checksum: z.string(),
 });
@@ -36,6 +40,23 @@ export type IndexerResource = z.infer<typeof indexerResourceSchema>;
 export function isIndexerResource(resource: any): resource is IndexerResource {
   try {
     indexerResourceSchema.parse(resource);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+const dataSourceResourceSchema = resourceSchema.extend({
+  type: z.literal("dataSource"),
+});
+
+export type DataSourceResource = z.infer<typeof dataSourceResourceSchema>;
+
+export function isDataSourceResource(
+  resource: any
+): resource is DataSourceResource {
+  try {
+    dataSourceResourceSchema.parse(resource);
     return true;
   } catch {
     return false;
@@ -93,6 +114,12 @@ function isSearchIndexer(indexer: any): indexer is SearchIndexer {
   return indexer.name && indexer.dataSourceName;
 }
 
+function isDataSource(
+  dataSource: any
+): dataSource is SearchIndexerDataSourceConnection {
+  return dataSource.name && dataSource.container.name;
+}
+
 function isResource(resource: any): resource is Resource {
   return resource.name && resource.etag;
 }
@@ -105,6 +132,10 @@ export const migrationFileSchema = z.object({
   indexers: z.object({
     create: z.any().refine(isSearchIndexer).array(),
     delete: indexerResourceSchema.array(),
+  }),
+  dataSources: z.object({
+    create: z.any().refine(isDataSource).array(),
+    delete: dataSourceResourceSchema.array(),
   }),
 });
 

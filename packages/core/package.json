@@ -1,6 +1,6 @@
 {
-  "name": "ivy-orm",
-  "version": "0.0.22",
+  "name": "@ivy-orm/core",
+  "version": "0.0.1",
   "description": "",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
@@ -9,11 +9,15 @@
     "dist"
   ],
   "scripts": {
-    "build": "rm -rf dist && tsup src/index.ts --format cjs,esm --dts --minify --external @azure/search-documents",
-    "dev": "tsup src/index.ts --format cjs,esm --dts --watch",
-    "lint": "tsc --noEmit",
+    "build": "tsup",
     "pub:release": "pnpm build && pnpm publish --no-git-checks"
   },
+  "author": "ihusemann",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ihusemann/ivy-orm"
+  },
+  "license": "MIT",
   "keywords": [
     "azure",
     "cognitive",
@@ -23,15 +27,9 @@
     "typescript",
     "ts"
   ],
-  "author": "ihusemann",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/ihusemann/ivy-orm"
-  },
-  "license": "MIT",
   "devDependencies": {
     "@azure/search-documents": "^12.0.0",
-    "@total-typescript/tsconfig": "^1.0.4",
+    "@types/node": "^22.7.0",
     "tsup": "^8.0.2",
     "typescript": "^5.3.3"
   }

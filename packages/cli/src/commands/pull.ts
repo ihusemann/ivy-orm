@@ -3,6 +3,7 @@ import { baseOptions, baseTransform } from "./base";
 import prompts from "prompts";
 import { SearchIndex } from "@azure/search-documents";
 import chalk from "chalk";
+import { ensureAdapter } from "src/util/adapter";
 
 /**
  * pull into the state indexes and indexers that don't already exist in the state.
@@ -28,6 +29,8 @@ export const pull = command({
     adapter,
     force,
   }) => {
+    ensureAdapter(adapter);
+
     const indexIterator = searchIndexClient.listIndexes();
 
     const ora = (await import("ora")).default;
