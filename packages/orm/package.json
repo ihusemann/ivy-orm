@@ -12,6 +12,7 @@
     "build": "rm -rf dist && tsup src/index.ts --format cjs,esm --dts --minify --external @azure/search-documents",
     "dev": "tsup src/index.ts --format cjs,esm --dts --watch",
     "lint": "tsc --noEmit",
+    "test": "vitest --typecheck",
     "pub:release": "pnpm build && pnpm publish --no-git-checks"
   },
   "keywords": [
@@ -33,6 +34,7 @@
     "@azure/search-documents": "^12.0.0",
     "@total-typescript/tsconfig": "^1.0.4",
     "tsup": "^8.0.2",
-    "typescript": "^5.3.3"
+    "typescript": "^5.3.3",
+    "vitest": "^2.1.1"
   }
 }

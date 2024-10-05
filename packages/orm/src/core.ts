@@ -297,7 +297,7 @@ export function index<
 }
 
 /**
- * generate an Azure AI Search FieldMapping to map the data source field names
+ * Generates Azure AI Search FieldMapping to map the data source field names
  * to those in the schema.
  */
 export function generateFieldMappings(
