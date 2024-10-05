@@ -80,6 +80,15 @@ myField: double("myField");
 myField: boolean("myField");
 ```
 
+#### Complex Fields
+
+```ts
+// Edm.ComplexType
+myComplex: complex("myComplex", {
+  myField: string("myField"),
+});
+```
+
 #### Collections
 
 ```ts

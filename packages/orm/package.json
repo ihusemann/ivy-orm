@@ -12,7 +12,8 @@
     "build": "rm -rf dist && tsup src/index.ts --format cjs,esm --dts --minify --external @azure/search-documents",
     "dev": "tsup src/index.ts --format cjs,esm --dts --watch",
     "lint": "tsc --noEmit",
-    "test": "vitest --typecheck",
+    "test": "vitest",
+    "test:types": "tsd --files test/field-builder.test-d.ts",
     "pub:release": "pnpm build && pnpm publish --no-git-checks"
   },
   "keywords": [
@@ -33,6 +34,7 @@
   "devDependencies": {
     "@azure/search-documents": "^12.0.0",
     "@total-typescript/tsconfig": "^1.0.4",
+    "tsd": "^0.31.2",
     "tsup": "^8.0.2",
     "typescript": "^5.3.3",
     "vitest": "^2.1.1"

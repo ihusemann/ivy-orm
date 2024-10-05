@@ -1,12 +1,14 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, expectTypeOf, it } from "vitest";
 import {
   boolean,
   booleanCollection,
   collection,
+  complex,
   date,
   dateCollection,
   double,
   doubleCollection,
+  InferFieldBuilderType,
   int32,
   int32Collection,
   int64,
@@ -14,6 +16,7 @@ import {
   string,
   stringCollection,
 } from "../src/index";
+import { ComplexField } from "@azure/search-documents";
 
 export const defaultFieldProperties = {
   key: false,
@@ -132,6 +135,7 @@ describe("ComplexField", () => {
       field: string("field"),
     }).build();
 
+    expect(field.type).toBe("Collection(Edm.ComplexType)");
     expect(field).toEqual({
       name: "name",
       type: "Collection(Edm.ComplexType)",
@@ -145,17 +149,29 @@ describe("ComplexField", () => {
     });
   });
 
-  it("should handle complex collection fields types", () => {
-    const field = collection("name", {
-      field: string("field"),
-    }).build();
+  it("should handle complex field", () => {
+    const address = complex("address", {
+      street: string("street"),
+      city: string("city").filterable(),
+    });
 
-    expect(field.type).toBe("Collection(Edm.ComplexType)");
+    const expected: ComplexField = {
+      name: "address",
+      type: "Edm.ComplexType",
+      fields: [
+        {
+          ...defaultFieldProperties,
+          name: "street",
+          type: "Edm.String",
+        },
+        {
+          ...defaultFieldProperties,
+          name: "city",
+          type: "Edm.String",
+          filterable: true,
+        },
+      ],
+    };
+    expect(address["build"]()).toEqual(expected);
   });
-
-  // it("should disallow complex field name mismatch", () => {
-  //   const field = collection("name", {
-  //     field: string("notField"),
-  //   }).build();
-  // });
 });

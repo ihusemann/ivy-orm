@@ -189,15 +189,46 @@ export class SimpleFieldBuilder<
   }
 }
 
-export class CollectionFieldBuilder<
+export class ComplexFieldBuilder<
   TName extends string,
   TFields extends Record<string, FieldBuilder>,
-  TType extends ComplexDataType,
 > extends FieldBuilder {
   override hasSuggester = false;
 
-  constructor(name: TName, type: TType, fields: TFields) {
-    super(name, type, fields);
+  constructor(name: TName, fields: TFields) {
+    super(name, "Edm.ComplexType", fields);
+  }
+
+  /* @internal */
+  getDatasourceFieldName(): string {
+    return this.config.name;
+  }
+
+  /* @internal */
+  getType() {
+    return this.config.type;
+  }
+
+  /* @internal */
+  build(name?: TName): ComplexField {
+    return {
+      name: name || this.config.name,
+      type: this.config.type as ComplexDataType,
+      fields: Object.entries(this.fields).map(([name, fieldBuilder]) =>
+        fieldBuilder["build"](name)
+      ),
+    };
+  }
+}
+
+export class CollectionFieldBuilder<
+  TName extends string,
+  TFields extends Record<string, FieldBuilder>,
+> extends FieldBuilder {
+  protected override hasSuggester: boolean = false;
+
+  constructor(name: TName, fields: TFields) {
+    super(name, "Collection(Edm.ComplexType)", fields);
   }
 
   /* @internal */
@@ -548,26 +579,25 @@ export const doubleCollection = (name: string) => {
 };
 
 export const dateCollection = (name: string) => {
-  return new SimpleFieldBuilder<string[]>(
-    name,
-    "Collection(Edm.DateTimeOffset)"
-  );
+  return new SimpleFieldBuilder<Date[]>(name, "Collection(Edm.DateTimeOffset)");
 };
 
 export const booleanCollection = (name: string) => {
-  return new SimpleFieldBuilder<string[]>(name, "Collection(Edm.Boolean)");
+  return new SimpleFieldBuilder<boolean[]>(name, "Collection(Edm.Boolean)");
 };
 
 export function collection<
   TName extends string,
   TFields extends Record<string, FieldBuilder>,
-  TType extends ComplexDataType,
->(name: TName, fields: TFields) {
-  return new CollectionFieldBuilder(
-    name,
-    "Collection(Edm.ComplexType)" as TType,
-    fields
-  );
+>(name: TName, fields: TFields): CollectionFieldBuilder<TName, TFields> {
+  return new CollectionFieldBuilder(name, fields);
+}
+
+export function complex<
+  TName extends string,
+  TFields extends Record<string, FieldBuilder>,
+>(name: TName, fields: TFields): ComplexFieldBuilder<TName, TFields> {
+  return new ComplexFieldBuilder(name, fields);
 }
 
 export type InferFieldBuilderType<TField extends FieldBuilder> =
@@ -575,9 +605,11 @@ export type InferFieldBuilderType<TField extends FieldBuilder> =
     ? TNotNull extends true
       ? TType
       : TType | null
-    : TField extends CollectionFieldBuilder<any, infer TFields, ComplexDataType>
-      ? { [Key in keyof TFields]: InferFieldBuilderType<TFields[Key]> }[]
-      : never;
+    : TField extends ComplexFieldBuilder<any, infer TFields>
+      ? { [Key in keyof TFields]: InferFieldBuilderType<TFields[Key]> }
+      : TField extends CollectionFieldBuilder<any, infer TFields>
+        ? { [Key in keyof TFields]: InferFieldBuilderType<TFields[Key]> }[]
+        : never;
 
 export type InferType<TIndex extends AnyIndex> =
   TIndex extends Index<any, infer TFields>
