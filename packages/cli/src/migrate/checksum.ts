@@ -8,6 +8,7 @@ import {
 import objectHash from "object-hash";
 import cleanDeep from "clean-deep";
 import { isSimpleField } from "@ivy-orm/core";
+import { MigrationFile } from "./types";
 
 /**
  * Removes the indexer properties that are not managed by ivy-orm.
@@ -141,6 +142,17 @@ export function generateDataSourceChecksum(
   const sanitizedDataSource = sanitizeDataSource(dataSource);
 
   return objectHash(cleanDeep(sanitizedDataSource), {
+    unorderedArrays: true,
+    unorderedObjects: true,
+  });
+}
+
+/**
+ * Deterministically generate a checksum for a Migration.
+ * Object and array order does not affect checksum.
+ */
+export function generateMigrationChecksum(migration: MigrationFile) {
+  return objectHash(migration, {
     unorderedArrays: true,
     unorderedObjects: true,
   });

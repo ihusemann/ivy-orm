@@ -5,4 +5,5 @@ export default defineConfig({
   outDir: "dist",
   dts: true,
   clean: true,
+  external: ["@azure/search-documents"],
 });

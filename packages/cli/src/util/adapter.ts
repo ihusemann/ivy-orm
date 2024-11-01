@@ -1,5 +1,5 @@
 import chalk from "chalk";
-import { Adapter } from "./migrate";
+import { Adapter } from "../migrate/types";
 
 export function ensureAdapter(adapter?: Adapter): asserts adapter is Adapter {
   if (!adapter) {

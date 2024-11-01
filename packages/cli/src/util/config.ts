@@ -1,6 +1,6 @@
 import { type TokenCredential } from "@azure/identity";
 import { z } from "zod";
-import { Adapter } from "./migrate";
+import { Adapter } from "../migrate/types";
 import fs from "fs";
 import chalk from "chalk";
 

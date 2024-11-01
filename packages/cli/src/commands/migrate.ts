@@ -1,94 +1,200 @@
-import { command } from "@drizzle-team/brocli";
+import { command, string } from "@drizzle-team/brocli";
 import { baseOptions, baseTransform } from "./base";
-import { readdirSync, readFileSync } from "fs";
-import {
-  ensureMigrationsDirectory,
-  migrationFileSchema,
-  Resource,
-} from "src/util/migrate";
-import path from "path";
-import chalk from "chalk";
-import pluralize from "pluralize";
-import {
-  generateIndexChecksum,
-  generateIndexerChecksum,
-} from "src/util/checksum";
 import { ensureAdapter } from "src/util/adapter";
 import {
+  computeMigrationActions,
+  generateMigrationFile,
+  ResourceHandlers,
+} from "src/migrate/generate";
+import { AnyDataSourceConnection, AnyIndex, AnyIndexer } from "ivy-orm";
+import {
   SearchIndex,
-  SearchIndexClient,
   SearchIndexer,
-  SearchIndexerClient,
+  SearchIndexerDataSourceConnection,
 } from "@azure/search-documents";
+import {
+  isDataSourceResource,
+  isIndexerResource,
+  isIndexResource,
+} from "src/migrate/guards";
+import {
+  generateDataSourceChecksum,
+  generateIndexChecksum,
+  generateIndexerChecksum,
+} from "src/migrate/checksum";
+import ora from "ora";
+import {
+  DataSourceResource,
+  IndexerResource,
+  IndexResource,
+} from "src/migrate/types";
+import path from "path";
+import { format } from "date-fns";
+import slugify from "slugify";
+import chalk from "chalk";
+import { readFileSync, writeFileSync } from "fs";
+import {
+  adjectives,
+  animals,
+  uniqueNamesGenerator,
+} from "unique-names-generator";
+import { ensureMigrationsDirectory } from "src/migrate/util";
+import pluralize from "pluralize";
+import { migrationFileSchema } from "src/migrate/schemas";
+import { Migrator } from "src/migrate/migrator";
+import { fetchPendingMigrations } from "src/migrate/plan";
 
-type ResourceType = "index" | "indexer" | "dataSource";
+const generateOptions = {
+  ...baseOptions,
+  name: string()
+    .alias("-n")
+    .desc("Name the migration")
+    .default(
+      uniqueNamesGenerator({
+        dictionaries: [adjectives, animals],
+        separator: "-",
+      })
+    ),
+};
 
-interface ResourceHandlers<TCreateResource, TClient> {
-  resourceType: ResourceType;
-  getName: (resource: TCreateResource | Resource) => string;
-  getId: (resource: Resource) => string;
-  getLiveResource: (client: TClient, name: string) => Promise<TCreateResource>;
-  deleteResource: (client: TClient, name: string) => Promise<void>;
-  createResource: (
-    client: TClient,
-    resource: TCreateResource
-  ) => Promise<TCreateResource>;
-  stateDeleteResource: (id: string) => Promise<void>;
-  stateCreateResource: (resource: TCreateResource) => Promise<Resource>;
-}
-
-async function processDeleteOperations<TClient>(
-  client: TClient,
-  resources: Resource[],
-  handlers: ResourceHandlers<any, TClient>
-) {
-  const ora = (await import("ora")).default;
-
-  for (const resource of resources) {
-    const name = handlers.getName(resource);
-    const spinner = ora(`Deleting ${handlers.resourceType} ${name}...`).start();
-    try {
-      await handlers.deleteResource(client, name);
-      await handlers.stateDeleteResource(handlers.getId(resource));
-      spinner.succeed(`Deleted ${handlers.resourceType} ${name}`);
-    } catch (error) {
-      spinner.fail();
-      throw error;
-    }
-  }
-}
-
-async function processCreateOperations<TCreateResource, TClient>(
-  client: TClient,
-  resources: TCreateResource[],
-  handlers: ResourceHandlers<TCreateResource, TClient>
-) {
-  const ora = (await import("ora")).default;
-
-  for (const resource of resources) {
-    const name = handlers.getName(resource);
-    const spinner = ora(`Creating ${handlers.resourceType} ${name}...`).start();
-    try {
-      await handlers.createResource(client, resource);
-
-      await handlers.stateCreateResource(resource);
-      spinner.succeed(`Created ${handlers.resourceType} ${name}`);
-    } catch (error) {
-      spinner.fail();
-      throw error;
-    }
-  }
-}
-
-export const migrate = command({
-  name: "migrate",
-  options: baseOptions,
-  transform: baseTransform<{}>,
+const generate = command({
+  name: "generate",
+  options: generateOptions,
+  transform: baseTransform<typeof generateOptions>,
   handler: async ({
-    adapter,
+    schemaExports: {
+      indexes: schemaIndexes,
+      indexers: schemaIndexers,
+      dataSources: schemaDataSources,
+    },
     cwd,
     schema,
+    adapter,
+    name,
     out,
+  }) => {
+    ensureAdapter(adapter);
+
+    const spinner = ora("Generating migration...").start();
+
+    // first, ensure there aren't any existing unapplied migrations
+    const pendingMigrations = await fetchPendingMigrations({
+      adapter,
+      migrationsDirectory: ensureMigrationsDirectory(cwd, schema, out),
+    });
+
+    if (pendingMigrations.length > 0) {
+      spinner.fail();
+      console.log(
+        `${chalk.red.bold("Error:")} ${pluralize("Migration", pendingMigrations.length)} ${chalk.green(pendingMigrations.join())} ${pendingMigrations.length === 1 ? "has" : "have"} not yet been applied.  Either delete the unapplied ${pluralize("migration", pendingMigrations.length)}, or run ${chalk.green("ivy-kit migrate apply")} before generating a new migration.`
+      );
+
+      return;
+    }
+
+    const resources = await adapter.listResources();
+
+    const stateIndexes = resources.filter(isIndexResource);
+    const stateIndexers = resources.filter(isIndexerResource);
+    const stateDataSources = resources.filter(isDataSourceResource);
+
+    const indexHandlers: ResourceHandlers<
+      AnyIndex,
+      IndexResource,
+      SearchIndex
+    > = {
+      isResource: isIndexResource,
+      buildFn: (index) => index["build"](),
+      getName: (resource) => resource.name,
+      getChecksum: (resource) => resource.checksum,
+      generateChecksum: (index) => generateIndexChecksum(index),
+      resourceType: "index",
+    };
+
+    const indexerHandlers: ResourceHandlers<
+      AnyIndexer,
+      IndexerResource,
+      SearchIndexer
+    > = {
+      isResource: isIndexerResource,
+      buildFn: (indexer) => indexer["build"](),
+      getName: (resource) => resource.name,
+      getChecksum: (resource) => resource.checksum,
+      generateChecksum: (indexer) => generateIndexerChecksum(indexer),
+      resourceType: "indexer",
+    };
+
+    const dataSourceHandlers: ResourceHandlers<
+      AnyDataSourceConnection,
+      DataSourceResource,
+      SearchIndexerDataSourceConnection
+    > = {
+      isResource: isDataSourceResource,
+      buildFn: (dataSource) => dataSource["build"](),
+      getName: (resource) => resource.name,
+      getChecksum: (resource) => resource.checksum,
+      generateChecksum: (dataSource) => generateDataSourceChecksum(dataSource),
+      resourceType: "dataSource",
+    };
+
+    const indexActions = computeMigrationActions(
+      Object.values(schemaIndexes),
+      stateIndexes,
+      indexHandlers
+    );
+
+    const indexerActions = computeMigrationActions(
+      Object.values(schemaIndexers),
+      stateIndexers,
+      indexerHandlers
+    );
+
+    const dataSourceActions = computeMigrationActions(
+      Object.values(schemaDataSources),
+      stateDataSources,
+      dataSourceHandlers
+    );
+
+    spinner.stop();
+
+    const migration = generateMigrationFile({
+      indexActions,
+      indexerActions,
+      dataSourceActions,
+    });
+
+    if (
+      migration.indexes.create.length === 0 &&
+      migration.indexes.delete.length === 0 &&
+      migration.indexers.create.length === 0 &&
+      migration.indexers.delete.length === 0
+    ) {
+      ora(`No changes to apply.`).succeed();
+      return;
+    }
+
+    const dir = ensureMigrationsDirectory(cwd, schema, out);
+    const filename = `${format(new Date(), "yyyyMMddHHmmss")}-${slugify(
+      name
+    )}.json`;
+
+    writeFileSync(path.join(dir, filename), JSON.stringify(migration, null, 2));
+
+    ora(`Done! Created migration file ${chalk.green(filename)}`).succeed();
+  },
+});
+
+const applyOptions = baseOptions;
+
+const apply = command({
+  name: "apply",
+  options: applyOptions,
+  transform: baseTransform<typeof applyOptions>,
+  handler: async ({
+    adapter,
+    out,
+    cwd,
+    schema,
     searchIndexClient,
     searchIndexerClient,
   }) => {
@@ -97,23 +203,18 @@ export const migrate = command({
     const ora = (await import("ora")).default;
 
     const loadingSpinner = ora("Loading migrations...").start();
-    // find unapplied migrations
-    const appliedMigrations = new Set(
-      (await adapter.listAppliedMigrations()).map(({ name }) => name)
-    );
+
+    const migrationsDirectory = ensureMigrationsDirectory(cwd, schema, out);
+
+    const pendingMigrations = await fetchPendingMigrations({
+      adapter,
+      migrationsDirectory,
+    });
 
     loadingSpinner.stop();
 
-    const migrationDirectory = ensureMigrationsDirectory(cwd, schema, out);
-
-    const migrations = readdirSync(migrationDirectory);
-
-    const pendingMigrations = migrations.filter(
-      (name) => !appliedMigrations.has(name)
-    );
-
     if (pendingMigrations.length === 0) {
-      console.log("No pending migrations found.  Aborting.");
+      console.log("No pending migrations found.");
       return;
     }
 
@@ -124,84 +225,29 @@ export const migrate = command({
     for await (const migrationName of pendingMigrations) {
       const migration = migrationFileSchema.parse(
         JSON.parse(
-          readFileSync(path.join(migrationDirectory, migrationName), "utf-8")
+          readFileSync(path.join(migrationsDirectory, migrationName), "utf-8")
         )
       );
 
-      console.log(`\nApplying migration \`${chalk.green(migrationName)}\`\n`);
-
-      const indexHandlers: ResourceHandlers<SearchIndex, SearchIndexClient> = {
-        resourceType: "index",
-        getName: (resource) => resource.name,
-        getId: (resource) => resource.id,
-        getLiveResource: (client, name) => client.getIndex(name),
-        deleteResource: (client, name) => client.deleteIndex(name),
-        createResource: (client, resource) => client.createIndex(resource),
-        stateDeleteResource: (id) => adapter.deleteResource(id),
-        stateCreateResource: (resource) =>
-          adapter.createResource({
-            name: resource.name,
-            type: "index",
-            checksum: generateIndexChecksum(resource),
-          }),
-      };
-
-      await processDeleteOperations(
+      const migrator = new Migrator({
+        name: migrationName,
+        migration,
+        adapter,
         searchIndexClient,
-        migration.indexes.delete,
-        indexHandlers
-      );
-
-      await processCreateOperations(
-        searchIndexClient,
-        migration.indexes.create,
-        indexHandlers
-      );
-
-      const indexerHandlers: ResourceHandlers<
-        SearchIndexer,
-        SearchIndexerClient
-      > = {
-        resourceType: "index",
-        getName: (resource) => resource.name,
-        getId: (resource) => resource.id,
-        getLiveResource: (client, name) => client.getIndexer(name),
-        deleteResource: (client, name) => client.deleteIndexer(name),
-        createResource: async (client, resource) => {
-          const res = await client.createIndexer(resource);
-          console.log("CREATED INDEXER W/ ETAG", res.etag);
-          return res;
-        },
-        stateDeleteResource: (id) => adapter.deleteResource(id),
-        stateCreateResource: (resource) =>
-          adapter.createResource({
-            name: resource.name,
-            type: "indexer",
-            checksum: generateIndexerChecksum(resource),
-          }),
-      };
-
-      await processDeleteOperations(
         searchIndexerClient,
-        migration.indexers.delete,
-        indexerHandlers
-      );
+      });
 
-      await processCreateOperations(
-        searchIndexerClient,
-        migration.indexers.create,
-        indexerHandlers
-      );
+      const { success, message } = await migrator.applyMigration();
 
-      try {
-        await adapter.applyMigration(migrationName);
-      } catch {
-        throw new Error(
-          `${chalk.red.bold("Error:")} migration was successful, but was not added to migration history.`
-        );
+      if (!success) {
+        console.log(message);
+        return;
       }
     }
-
-    ora("Done!").succeed();
   },
+});
+
+export const migrate = command({
+  name: "migrate",
+  subcommands: [generate, apply],
 });

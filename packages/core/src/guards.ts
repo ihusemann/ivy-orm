@@ -1,8 +1,14 @@
 import {
   ComplexDataType,
   SearchFieldDataType,
+  SearchIndex,
+  SearchIndexer,
+  SearchIndexerDataSourceConnection,
   SimpleField,
 } from "@azure/search-documents";
+
+// include `@azure/search-documents` types in the exports to avoid build errors in CLI
+export type { SearchIndex, SearchIndexer, SearchIndexerDataSourceConnection };
 
 /**
  * Determines whether a given data type is a simple search field data type.
@@ -58,4 +64,33 @@ export const isSimpleField = (field: any): field is SimpleField => {
   if (!isSimpleFieldDataType(type)) return false;
 
   return true;
+};
+
+/**
+ * Checks if a variable fulfils SearchIndex
+ * @param index - The index to evaluate.
+ * @returns A boolean indicating whether the provided index is a SearchIndex
+ */
+export const isSearchIndex = (index: any): index is SearchIndex => {
+  return index.name && index.fields;
+};
+
+/**
+ * Checks if a variable fulfils SearchIndexer
+ * @param indexer - The indexer to evaluate.
+ * @returns A boolean indicating whether the provided indexer is a SearchIndexer
+ */
+export const isSearchIndexer = (indexer: any): indexer is SearchIndexer => {
+  return indexer.name && indexer.dataSourceName;
+};
+
+/**
+ * Checks if a variable fulfils SearchIndexerDataSourceConnection
+ * @param dataSource - The dataSource to evaluate.
+ * @returns A boolean indicating whether the provided dataSource is a SearchIndexerDataSourceConnection
+ */
+export const isDataSource = (
+  dataSource: any
+): dataSource is SearchIndexerDataSourceConnection => {
+  return dataSource.name && dataSource.container.name;
 };
