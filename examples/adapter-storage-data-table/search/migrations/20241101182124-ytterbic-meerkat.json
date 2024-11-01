@@ -1,0 +1,98 @@
+{
+  "indexes": {
+    "create": [
+      {
+        "name": "realestate-sample-index",
+        "fields": [
+          {
+            "name": "id",
+            "type": "Edm.String",
+            "facetable": false,
+            "filterable": false,
+            "hidden": false,
+            "key": true,
+            "searchable": false,
+            "sortable": false,
+            "synonymMapNames": [],
+            "synonymMaps": []
+          },
+          {
+            "name": "beds",
+            "type": "Edm.Int32",
+            "facetable": true,
+            "filterable": false,
+            "hidden": false,
+            "key": false,
+            "searchable": false,
+            "sortable": true,
+            "synonymMapNames": [],
+            "synonymMaps": []
+          },
+          {
+            "name": "baths",
+            "type": "Edm.Int32",
+            "facetable": true,
+            "filterable": false,
+            "hidden": false,
+            "key": false,
+            "searchable": false,
+            "sortable": true,
+            "synonymMapNames": [],
+            "synonymMaps": []
+          },
+          {
+            "name": "description",
+            "type": "Edm.String",
+            "facetable": false,
+            "filterable": false,
+            "hidden": false,
+            "key": false,
+            "searchable": true,
+            "sortable": false,
+            "synonymMapNames": [],
+            "synonymMaps": []
+          },
+          {
+            "name": "sqft",
+            "type": "Edm.Int32",
+            "facetable": true,
+            "filterable": false,
+            "hidden": false,
+            "key": false,
+            "searchable": false,
+            "sortable": false,
+            "synonymMapNames": [],
+            "synonymMaps": []
+          },
+          {
+            "name": "street",
+            "type": "Edm.String",
+            "facetable": false,
+            "filterable": false,
+            "hidden": false,
+            "key": false,
+            "searchable": true,
+            "sortable": false,
+            "synonymMapNames": [],
+            "synonymMaps": []
+          }
+        ],
+        "analyzers": [],
+        "charFilters": [],
+        "scoringProfiles": [],
+        "tokenFilters": [],
+        "suggesters": [],
+        "tokenizers": []
+      }
+    ],
+    "delete": []
+  },
+  "indexers": {
+    "create": [],
+    "delete": []
+  },
+  "dataSources": {
+    "create": [],
+    "delete": []
+  }
+}

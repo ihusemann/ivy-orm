@@ -1,0 +1,25 @@
+{
+  "name": "adapter-storage-data-table",
+  "version": "0.0.0",
+  "description": "",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/node": "^22.8.6",
+    "ivy-kit": "workspace:^",
+    "typescript": "^5.3.3"
+  },
+  "dependencies": {
+    "@azure/data-tables": "^13.2.2",
+    "@azure/identity": "^4.1.0",
+    "@azure/storage-blob": "^12.25.0",
+    "dotenv": "^16.4.5",
+    "ivy-orm": "workspace:^",
+    "tsx": "^4.16.2",
+    "uuid": "^11.0.2"
+  }
+}
