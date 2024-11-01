@@ -68,3 +68,8 @@ export interface Adapter {
   succeedMigration(id: string): Promise<Migration>;
   errorMigration(id: string, error: string): Promise<Migration>;
 }
+
+export type MigrationValidationResult = {
+  name: string;
+  status: "valid" | "checksumMismatch" | "missingInState" | "missingLocally";
+};

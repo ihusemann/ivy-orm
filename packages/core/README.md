@@ -1,5 +1,3 @@
-# `@ivy-orm/core`
-
 ## Installation
 
 ```bash

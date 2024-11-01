@@ -278,12 +278,3 @@ const errorDetailsSchema = z.object({
     message: z.string(),
   }),
 });
-
-/**
- * Ensure the ivy-kit migration history matches the migration
- * history indicated in the migrations directory. Validate:
- *
- * - Migrations directory contains all the applied migrations
- * - Checksums match
- */
-async function validateMigrationHistory() {}

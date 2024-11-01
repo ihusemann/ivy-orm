@@ -42,7 +42,11 @@ import { ensureMigrationsDirectory } from "src/migrate/util";
 import pluralize from "pluralize";
 import { migrationFileSchema } from "src/migrate/schemas";
 import { Migrator } from "src/migrate/migrator";
-import { fetchPendingMigrations } from "src/migrate/plan";
+import {
+  ensureValidMigrationHistory,
+  listUnappliedMigrations,
+  validateMigrationHistory,
+} from "src/migrate/plan";
 
 const generateOptions = {
   ...baseOptions,
@@ -77,11 +81,15 @@ const generate = command({
 
     const spinner = ora("Generating migration...").start();
 
-    // first, ensure there aren't any existing unapplied migrations
-    const pendingMigrations = await fetchPendingMigrations({
+    const migrationHistory = await validateMigrationHistory({
       adapter,
       migrationsDirectory: ensureMigrationsDirectory(cwd, schema, out),
     });
+
+    ensureValidMigrationHistory(migrationHistory);
+
+    // first, ensure there aren't any existing unapplied migrations
+    const pendingMigrations = listUnappliedMigrations(migrationHistory);
 
     if (pendingMigrations.length > 0) {
       spinner.fail();
@@ -175,7 +183,10 @@ const generate = command({
 
     const dir = ensureMigrationsDirectory(cwd, schema, out);
     const filename = `${format(new Date(), "yyyyMMddHHmmss")}-${slugify(
-      name
+      name.replaceAll("_", "-"),
+      {
+        lower: true,
+      }
     )}.json`;
 
     writeFileSync(path.join(dir, filename), JSON.stringify(migration, null, 2));
@@ -206,10 +217,14 @@ const apply = command({
 
     const migrationsDirectory = ensureMigrationsDirectory(cwd, schema, out);
 
-    const pendingMigrations = await fetchPendingMigrations({
+    const migrationHistory = await validateMigrationHistory({
       adapter,
       migrationsDirectory,
     });
+
+    ensureValidMigrationHistory(migrationHistory);
+
+    const pendingMigrations = listUnappliedMigrations(migrationHistory);
 
     loadingSpinner.stop();
 
