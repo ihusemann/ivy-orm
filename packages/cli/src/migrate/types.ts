@@ -61,7 +61,7 @@ export interface Adapter {
   listResources(): Promise<Resource[]>;
   updateResource(id: string, data: Partial<Resource>): Promise<void>;
   createResource(data: Omit<Resource, "id">): Promise<Resource>;
-  deleteResource(id: string): Promise<void>;
+  deleteResource(name: string, type: ResourceType): Promise<void>;
 
   listMigrations(): Promise<Migration[]>;
   startMigration(migration: StartMigrationArgs): Promise<Migration>;

@@ -32,14 +32,14 @@ export const dataSourceResourceSchema = resourceSchema.extend({
 export const migrationFileSchema = z.object({
   indexes: z.object({
     create: z.any().refine(isSearchIndex).array(),
-    delete: indexResourceSchema.array(),
+    delete: indexResourceSchema.omit({ id: true }).array(),
   }),
   indexers: z.object({
     create: z.any().refine(isSearchIndexer).array(),
-    delete: indexerResourceSchema.array(),
+    delete: indexerResourceSchema.omit({ id: true }).array(),
   }),
   dataSources: z.object({
     create: z.any().refine(isDataSource).array(),
-    delete: dataSourceResourceSchema.array(),
+    delete: dataSourceResourceSchema.omit({ id: true }).array(),
   }),
 });

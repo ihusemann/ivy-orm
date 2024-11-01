@@ -25,7 +25,7 @@ interface ResourceHandlers<TCreateResource, TClient> {
     client: TClient,
     resource: TCreateResource
   ) => Promise<TCreateResource>;
-  stateDeleteResource: (id: string) => Promise<void>;
+  stateDeleteResource: (name: string) => Promise<void>;
   stateCreateResource: (resource: TCreateResource) => Promise<Resource>;
 }
 
@@ -54,7 +54,8 @@ export class Migrator {
     getLiveResource: (client, name) => client.getIndex(name),
     deleteResource: (client, name) => client.deleteIndex(name),
     createResource: (client, resource) => client.createIndex(resource),
-    stateDeleteResource: (id) => this.adapter.deleteResource(id),
+    stateDeleteResource: (name) =>
+      this.adapter.deleteResource(name, "index" as const),
     stateCreateResource: (resource) =>
       this.adapter.createResource({
         name: resource.name,
@@ -73,7 +74,8 @@ export class Migrator {
     getLiveResource: (client, name) => client.getIndexer(name),
     deleteResource: (client, name) => client.deleteIndexer(name),
     createResource: (client, resource) => client.createIndexer(resource),
-    stateDeleteResource: (id) => this.adapter.deleteResource(id),
+    stateDeleteResource: (name) =>
+      this.adapter.deleteResource(name, "indexer" as const),
     stateCreateResource: (resource) =>
       this.adapter.createResource({
         name: resource.name,
@@ -118,7 +120,7 @@ export class Migrator {
   async applyMigration(): Promise<ApplyMigrationResult> {
     console.log(`\nApplying migration \`${chalk.green(this.name)}\`\n`);
 
-    const migration = await this.startMigration();
+    await this.startMigration();
 
     // INDEXES
     try {
@@ -208,7 +210,7 @@ export class Migrator {
 
   private async processDeleteOperations<TClient>(
     client: TClient,
-    resources: Resource[],
+    resources: Omit<Resource, "id">[],
     handlers: ResourceHandlers<any, TClient>
   ) {
     for (const resource of resources) {
@@ -216,9 +218,11 @@ export class Migrator {
       const spinner = ora(
         `Deleting ${handlers.resourceType} ${name}...`
       ).start();
+
       try {
         await handlers.deleteResource(client, name);
-        await handlers.stateDeleteResource(handlers.getId(resource));
+
+        await handlers.stateDeleteResource(handlers.getName(resource));
         spinner.succeed(`Deleted ${handlers.resourceType} ${name}`);
       } catch (error) {
         spinner.fail();

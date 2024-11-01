@@ -4,5 +4,6 @@ export type {
   Resource,
   Migration,
   StartMigrationArgs,
+  ResourceType,
 } from "./migrate/types";
 export { isResource } from "./migrate/guards";
