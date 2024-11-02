@@ -81,6 +81,8 @@ const generate = command({
 
     const spinner = ora("Generating migration...").start();
 
+    await adapter.initialize?.();
+
     const migrationHistory = await validateMigrationHistory({
       adapter,
       migrationsDirectory: ensureMigrationsDirectory(cwd, schema, out),
@@ -214,6 +216,8 @@ const apply = command({
     const ora = (await import("ora")).default;
 
     const loadingSpinner = ora("Loading migrations...").start();
+
+    await adapter.initialize?.();
 
     const migrationsDirectory = ensureMigrationsDirectory(cwd, schema, out);
 

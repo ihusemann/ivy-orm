@@ -58,6 +58,11 @@ export type MigrationFile = z.infer<typeof migrationFileSchema>;
 export type StartMigrationArgs = Pick<Migration, "migrationName" | "checksum">;
 
 export interface Adapter {
+  /**
+   * If defined, runs before commands that interact with backend state.
+   * Can be used to ensure backend provider is ready.
+   */
+  initialize?(): Promise<void>;
   listResources(): Promise<Resource[]>;
   updateResource(id: string, data: Partial<Resource>): Promise<void>;
   createResource(data: Omit<Resource, "id">): Promise<Resource>;
