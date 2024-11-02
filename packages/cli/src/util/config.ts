@@ -3,13 +3,26 @@ import { z } from "zod";
 import { Adapter } from "../migrate/types";
 import fs from "fs";
 import chalk from "chalk";
+import { AzureKeyCredential } from "@azure/search-documents";
 
-function isTokenCredential(credential: any): credential is TokenCredential {
+export function isTokenCredential(
+  credential: any
+): credential is TokenCredential {
   try {
     return typeof credential.getToken === "function";
   } catch {
     return false;
   }
+}
+
+export function isAzureKeyCredential(obj: unknown): obj is AzureKeyCredential {
+  return (
+    typeof obj === "object" &&
+    obj !== null &&
+    "key" in obj &&
+    typeof (obj as AzureKeyCredential).key === "string" &&
+    typeof (obj as AzureKeyCredential).update === "function"
+  );
 }
 
 function isAdapter(adapter: any): adapter is Adapter {
@@ -23,7 +36,12 @@ function isAdapter(adapter: any): adapter is Adapter {
 export const configSchema = z.object({
   schema: z.string().optional().default("search/indexes.ts"),
   endpoint: z.string().url(),
-  credential: z.any().refine(isTokenCredential),
+  credential: z
+    .any()
+    .refine((obj) => isAzureKeyCredential(obj) || isTokenCredential(obj), {
+      message:
+        "Credential must be either an AzureKeyCredential or a TokenCredential",
+    }),
   adapter: z.any().refine(isAdapter).optional(),
   out: z.string().optional().default("migrations"),
 });
@@ -31,7 +49,7 @@ export const configSchema = z.object({
 export type Config = {
   schema?: string;
   endpoint: string;
-  credential: TokenCredential;
+  credential: TokenCredential | AzureKeyCredential;
   adapter?: Adapter;
 
   /**
