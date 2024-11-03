@@ -93,6 +93,11 @@ export function computeMigrationActions<TSchema, TState, TBuilt>(
   };
 }
 
+function removeId(resource: any) {
+  const { id: _, ...rest } = resource;
+  return rest;
+}
+
 export function generateMigrationFile({
   indexActions,
   indexerActions,
@@ -113,8 +118,8 @@ export function generateMigrationFile({
         ...indexActions.update.map(([built]) => built),
       ],
       delete: [
-        ...indexActions.delete,
-        ...indexActions.update.map(([, state]) => state),
+        ...indexActions.delete.map(removeId),
+        ...indexActions.update.map(([, state]) => state).map(removeId),
       ],
     },
     indexers: {
@@ -123,8 +128,8 @@ export function generateMigrationFile({
         ...indexerActions.update.map(([built]) => built),
       ],
       delete: [
-        ...indexerActions.delete,
-        ...indexerActions.update.map(([, state]) => state),
+        ...indexerActions.delete.map(removeId),
+        ...indexerActions.update.map(([, state]) => state).map(removeId),
       ],
     },
     dataSources: {
@@ -133,8 +138,8 @@ export function generateMigrationFile({
         ...dataSourceActions.update.map(([built]) => built),
       ],
       delete: [
-        ...dataSourceActions.delete,
-        ...dataSourceActions.update.map(([, state]) => state),
+        ...dataSourceActions.delete.map(removeId),
+        ...dataSourceActions.update.map(([, state]) => state).map(removeId),
       ],
     },
   };
