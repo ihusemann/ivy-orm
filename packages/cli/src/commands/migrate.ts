@@ -177,7 +177,9 @@ const generate = command({
       migration.indexes.create.length === 0 &&
       migration.indexes.delete.length === 0 &&
       migration.indexers.create.length === 0 &&
-      migration.indexers.delete.length === 0
+      migration.indexers.delete.length === 0 &&
+      migration.dataSources.create.length === 0 &&
+      migration.dataSources.delete.length === 0
     ) {
       ora(`No changes to apply.`).succeed();
       return;

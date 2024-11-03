@@ -132,3 +132,37 @@ export default {
   adapter: new PrismaAdapter(),
 } satisfies Config;
 ```
+
+### Managing Secrets
+
+Since ivy-kit generates JSON migration files that must be committed to your repository, we must be careful to avoid hard-coding application secrets, like database connection strings, into the schema.
+
+To avoid this, we use a microsyntax `@env()` to indicate environment variables that must be resolved applying migrations with `ivy-kit migrate apply`.
+
+For example, define an Azure SQL data source:
+
+```ts
+import { dataSource } from "ivy-orm";
+
+export const myDatasource = dataSource("my-datasource", "azuresql", {
+  connectionString: "@env(DATABASE_CONNECTION_STRING)",
+  container: {
+    name: "dbo.Hotels",
+  },
+});
+```
+
+The resulting JSON will match the connection string defined in the schema, with no secrets being exposed to your codebase:
+
+```json
+{
+  "name": "my-datasource",
+  "type": "azuresql",
+  "connectionString": "@env(DATABASE_CONNECTION_STRING)",
+  "container": {
+    "name": "dbo.Hotels"
+  }
+}
+```
+
+Finally, when running `ivy-kit migrate apply`, ivy-kit will resolve the environment variables when creating the data source in Azure.

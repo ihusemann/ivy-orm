@@ -3,8 +3,10 @@ import {
   SearchIndexClient,
   SearchIndexer,
   SearchIndexerClient,
+  SearchIndexerDataSourceConnection,
 } from "@azure/search-documents";
 import {
+  generateDataSourceChecksum,
   generateIndexChecksum,
   generateIndexerChecksum,
   generateMigrationChecksum,
@@ -12,9 +14,10 @@ import {
 import { Adapter, MigrationFile, Resource, ResourceType } from "./types";
 import ora from "ora";
 import chalk from "chalk";
-import { isRestError } from "@azure/core-rest-pipeline";
 import { z } from "zod";
 import pluralize from "pluralize";
+import { resolveSecret } from "./secrets";
+import { SecretClient } from "@azure/keyvault-secrets";
 
 interface ResourceHandlers<TCreateResource, TClient> {
   resourceType: ResourceType;
@@ -47,6 +50,7 @@ export class Migrator {
   private adapter: Adapter;
   private searchIndexClient: SearchIndexClient;
   private searchIndexerClient: SearchIndexerClient;
+  private secretClient?: SecretClient;
 
   private indexHandlers: ResourceHandlers<SearchIndex, SearchIndexClient> = {
     resourceType: "index",
@@ -85,6 +89,35 @@ export class Migrator {
       }),
   };
 
+  private datasourceHandlers: ResourceHandlers<
+    SearchIndexerDataSourceConnection,
+    SearchIndexerClient
+  > = {
+    resourceType: "dataSource",
+    getName: (resource) => resource.name,
+    getId: (resource) => resource.id,
+    getLiveResource: (client, name) => client.getDataSourceConnection(name),
+    deleteResource: (client, name) => client.deleteDataSourceConnection(name),
+    createResource: async (client, resource) => {
+      const connectionString = await resolveSecret(
+        resource.connectionString,
+        this.secretClient
+      );
+      return client.createDataSourceConnection({
+        ...resource,
+        connectionString,
+      });
+    },
+    stateDeleteResource: (name) =>
+      this.adapter.deleteResource(name, "dataSource" as const),
+    stateCreateResource: (resource) =>
+      this.adapter.createResource({
+        name: resource.name,
+        type: "dataSource" as const,
+        checksum: generateDataSourceChecksum(resource),
+      }),
+  };
+
   // collect functions that could roll-back changes as they're applied
   private rollbackResourcesCollector: Record<
     string,
@@ -100,18 +133,21 @@ export class Migrator {
     adapter,
     searchIndexClient,
     searchIndexerClient,
+    secretClient,
   }: {
     name: string;
     migration: MigrationFile;
     adapter: Adapter;
     searchIndexClient: SearchIndexClient;
     searchIndexerClient: SearchIndexerClient;
+    secretClient?: SecretClient;
   }) {
     this.name = name;
     this.migration = migration;
     this.adapter = adapter;
     this.searchIndexClient = searchIndexClient;
     this.searchIndexerClient = searchIndexerClient;
+    this.secretClient = secretClient;
   }
 
   private async startMigration() {
@@ -131,6 +167,19 @@ export class Migrator {
     console.log(`\nApplying migration \`${chalk.green(this.name)}\`\n`);
 
     await this.startMigration();
+
+    // DATA SOURCES
+    await this.processCreateOperations(
+      this.searchIndexerClient,
+      this.migration.dataSources.create,
+      this.datasourceHandlers
+    );
+
+    await this.processDeleteOperations(
+      this.searchIndexerClient,
+      this.migration.dataSources.delete,
+      this.datasourceHandlers
+    );
 
     // INDEXES
     await this.processDeleteOperations(
