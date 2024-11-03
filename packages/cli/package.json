@@ -1,6 +1,6 @@
 {
   "name": "ivy-kit",
-  "version": "0.0.25",
+  "version": "0.0.26-beta.2",
   "description": "",
   "bin": {
     "ivy-kit": "./dist/bin.cjs"
@@ -14,7 +14,7 @@
     "cli": "tsx ./src/bin.ts",
     "build": "rm -rf dist && pnpm build:cli && pnpm build:kit",
     "build:cli": "esbuild --bundle src/bin.ts --platform=node --target=node16 --outfile=dist/bin.cjs --format=cjs --external:esbuild --external:fs ",
-    "build:kit": "tsup src/index.ts --format cjs,esm --outDir dist --dts --minify --target esnext --external @azure/identity,zod,cosmiconfig,chalk",
+    "build:kit": "tsup src/index.ts --format cjs,esm --outDir dist --dts --minify --target esnext --external @azure/identity,cosmiconfig,chalk",
     "pub:release": "pnpm build && pnpm publish --no-git-checks",
     "test": "vitest"
   },

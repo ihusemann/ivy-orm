@@ -14,6 +14,7 @@ import ora from "ora";
 import chalk from "chalk";
 import { isRestError } from "@azure/core-rest-pipeline";
 import { z } from "zod";
+import pluralize from "pluralize";
 
 interface ResourceHandlers<TCreateResource, TClient> {
   resourceType: ResourceType;
@@ -84,6 +85,15 @@ export class Migrator {
       }),
   };
 
+  // collect functions that could roll-back changes as they're applied
+  private rollbackResourcesCollector: Record<
+    string,
+    {
+      rollbackResource: () => Promise<void>;
+      rollbackState?: () => Promise<void>;
+    }
+  > = {};
+
   constructor({
     name,
     migration,
@@ -123,64 +133,30 @@ export class Migrator {
     await this.startMigration();
 
     // INDEXES
-    try {
-      await this.processDeleteOperations(
-        this.searchIndexClient,
-        this.migration.indexes.delete,
-        this.indexHandlers
-      );
-    } catch (e) {
-      // TODO: don't error for delete errors?  How to check for 404?
-      this.errorMigration(JSON.stringify(e));
-      return {
-        success: false,
-        message: JSON.stringify(e),
-      };
-    }
+    await this.processDeleteOperations(
+      this.searchIndexClient,
+      this.migration.indexes.delete,
+      this.indexHandlers
+    );
 
-    try {
-      await this.processCreateOperations(
-        this.searchIndexClient,
-        this.migration.indexes.create,
-        this.indexHandlers
-      );
-    } catch (e) {
-      this.errorMigration(JSON.stringify(e));
-      return {
-        success: false,
-        message: JSON.stringify(e),
-      };
-    }
+    await this.processCreateOperations(
+      this.searchIndexClient,
+      this.migration.indexes.create,
+      this.indexHandlers
+    );
 
     // INDEXERS
-    try {
-      await this.processDeleteOperations(
-        this.searchIndexerClient,
-        this.migration.indexers.delete,
-        this.indexerHandlers
-      );
-    } catch (e) {
-      // TODO: don't error for delete errors?  How to check for 404?
-      this.errorMigration(JSON.stringify(e));
-      return {
-        success: false,
-        message: JSON.stringify(e),
-      };
-    }
+    await this.processDeleteOperations(
+      this.searchIndexerClient,
+      this.migration.indexers.delete,
+      this.indexerHandlers
+    );
 
-    try {
-      await this.processCreateOperations(
-        this.searchIndexerClient,
-        this.migration.indexers.create,
-        this.indexerHandlers
-      );
-    } catch (e) {
-      this.errorMigration(JSON.stringify(e));
-      return {
-        success: false,
-        message: JSON.stringify(e),
-      };
-    }
+    await this.processCreateOperations(
+      this.searchIndexerClient,
+      this.migration.indexers.create,
+      this.indexerHandlers
+    );
 
     try {
       await this.succeedMigration();
@@ -226,17 +202,11 @@ export class Migrator {
         spinner.succeed(`Deleted ${handlers.resourceType} ${name}`);
       } catch (error) {
         spinner.fail();
-        if (isRestError(error)) {
-          const results = errorDetailsSchema.safeParse(error.details);
-          if (!results.success)
-            throw new Error(`${error.code || "Unknown error"}`);
-          const {
-            error: { code, message },
-          } = results.data;
-          throw new Error(`${code}: ${message}`);
-        }
 
-        throw error;
+        console.log(error);
+        await this.errorMigration(JSON.stringify(error));
+
+        process.exit(1);
       }
     }
   }
@@ -251,27 +221,89 @@ export class Migrator {
       const spinner = ora(
         `Creating ${handlers.resourceType} ${name}...`
       ).start();
+
+      const resourceKey = `${handlers.resourceType}_${handlers.getName(resource)}`;
+
       try {
+        // create the resource in Azure
         await handlers.createResource(client, resource);
 
+        this.rollbackResourcesCollector[resourceKey] = {
+          rollbackResource: () =>
+            handlers.deleteResource(client, handlers.getName(resource)),
+        };
+      } catch (error) {
+        spinner.fail(
+          `${chalk.bold.red("Error:")} failed to create resource ${chalk.green(name)} in Azure.\n\n`
+        );
+
+        console.log(error);
+
+        await this.errorMigration(JSON.stringify(error));
+        await this.rollbackCreatedResources();
+
+        process.exit(1);
+      }
+
+      try {
+        // add the resource to backend state
         await handlers.stateCreateResource(resource);
+
+        this.rollbackResourcesCollector[resourceKey] = {
+          ...this.rollbackResourcesCollector[resourceKey],
+          rollbackState: () =>
+            handlers.stateDeleteResource(handlers.getName(resource)),
+        };
 
         spinner.succeed(`Created ${handlers.resourceType} ${name}`);
       } catch (error) {
-        spinner.fail();
+        spinner.fail(
+          `${chalk.bold.red("Error:")} failed to save resource ${chalk.green(name)} in state.`
+        );
 
-        if (isRestError(error)) {
-          const results = errorDetailsSchema.safeParse(error.details);
-          if (!results.success)
-            throw new Error(`${error.code || "Unknown error"}`);
-          const {
-            error: { code, message },
-          } = results.data;
-          throw new Error(`${code}: ${message}`);
-        }
+        console.log(error);
 
-        throw error;
+        await this.errorMigration(JSON.stringify(error));
+        await this.rollbackCreatedResources();
+
+        process.exit(1);
       }
+    }
+  }
+
+  /**
+   * In the event of an error, delete all the resources that were created in this migration.
+   * TODO: determine how to handle re-creating deleted resources, if at all.
+   */
+  private async rollbackCreatedResources() {
+    const spinner = ora("Attempting to roll back changes...");
+    try {
+      const results = await Promise.allSettled(
+        Object.values(this.rollbackResourcesCollector).map(
+          async ({ rollbackResource, rollbackState }) => {
+            await rollbackResource();
+            await rollbackState?.();
+          }
+        )
+      );
+
+      if (results.filter(({ status }) => status === "rejected").length > 0) {
+        spinner.fail();
+      }
+
+      results.forEach((result, index) => {
+        if (result.status === "rejected") {
+          console.error(`Rollback operation ${index} failed:`, result.reason);
+        }
+      });
+
+      const changeCount = Object.keys(this.rollbackResourcesCollector).length;
+
+      spinner.succeed(
+        `Rolled back ${chalk.green(changeCount)} ${pluralize("change", changeCount)}.`
+      );
+    } catch (e) {
+      console.error("Unexpected error during rollback:", e);
     }
   }
 }

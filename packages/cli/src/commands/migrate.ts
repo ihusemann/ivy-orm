@@ -259,8 +259,10 @@ const apply = command({
       const { success, message } = await migrator.applyMigration();
 
       if (!success) {
-        console.log(message);
-        return;
+        process.exit(1);
+        throw new Error(
+          `${chalk.bold.red("Error:")} failed to apply migration.\n${message}`
+        );
       }
     }
   },
