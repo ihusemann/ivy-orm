@@ -469,7 +469,7 @@ export function isDataSource(
   return !!dataSource.name && isValidDataSourceType(dataSource.type);
 }
 
-class DataSourceConnection<
+export class DataSourceConnection<
   TName extends string,
   TType extends SearchIndexerDataSourceType,
   TConfig extends Omit<SearchIndexerDataSourceConnection, "name" | "type">,
