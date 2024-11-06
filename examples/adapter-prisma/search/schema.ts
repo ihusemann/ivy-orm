@@ -9,9 +9,9 @@ export const realEstate = index("realestate-sample-index", {
   street: string("street").searchable(),
 });
 
-export const realEstateIndexer = indexer("realestate-sample-indexer-foobar", {
+export const realEstateIndexer = indexer("realestate-sample-indexer", {
   targetIndex: realEstate,
-  dataSourceName: "realestate-us-sample-foobar",
+  dataSourceName: "realestate-us-sample",
   fieldMappings: [
     {
       sourceFieldName: "listingId",
