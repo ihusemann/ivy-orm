@@ -22,6 +22,10 @@ export class DataTableAdapter implements Adapter {
     this.table.createTable().catch(() => {});
   }
 
+  async initialize(): Promise<void> {
+    await this.table.createTable();
+  }
+
   async listResources(): Promise<Resource[]> {
     const resources: Resource[] = [];
     for await (const entity of this.table.listEntities<StoredResource>({

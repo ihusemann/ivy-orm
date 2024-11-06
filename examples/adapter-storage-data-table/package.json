@@ -9,6 +9,7 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
+    "@azure/search-documents": "^12.0.0",
     "@types/node": "^22.8.6",
     "ivy-kit": "workspace:^",
     "typescript": "^5.3.3"

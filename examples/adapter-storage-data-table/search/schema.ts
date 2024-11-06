@@ -1,4 +1,4 @@
-import { index, int32, string } from "ivy-orm";
+import { index, indexer, int32, string } from "ivy-orm";
 
 export const realEstate = index("realestate-sample-index", {
   id: string("listingId").key(),
@@ -7,4 +7,18 @@ export const realEstate = index("realestate-sample-index", {
   description: string("description").searchable(),
   sqft: int32("sqft").facetable(),
   street: string("street").searchable(),
+});
+
+export const realEstateIndexer = indexer("realestate-sample-indexer-foobar", {
+  targetIndex: realEstate,
+  dataSourceName: "realestate-us-sample-foobar",
+  fieldMappings: [
+    {
+      sourceFieldName: "listingId",
+      targetFieldName: "id",
+      mappingFunction: {
+        name: "base64Encode",
+      },
+    },
+  ],
 });

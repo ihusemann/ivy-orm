@@ -88,7 +88,22 @@
     "delete": []
   },
   "indexers": {
-    "create": [],
+    "create": [
+      {
+        "name": "realestate-sample-indexer-foobar",
+        "dataSourceName": "realestate-us-sample-foobar",
+        "fieldMappings": [
+          {
+            "sourceFieldName": "listingId",
+            "targetFieldName": "id",
+            "mappingFunction": {
+              "name": "base64Encode"
+            }
+          }
+        ],
+        "targetIndexName": "realestate-sample-index"
+      }
+    ],
     "delete": []
   },
   "dataSources": {
