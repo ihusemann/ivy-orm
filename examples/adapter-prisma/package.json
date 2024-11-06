@@ -1,0 +1,26 @@
+{
+  "name": "adapter-prisma",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@azure/search-documents": "^12.0.0",
+    "@types/node": "^22.8.6",
+    "ivy-kit": "workspace:^",
+    "prisma": "^5.20.0",
+    "typescript": "^5.3.3"
+  },
+  "dependencies": {
+    "@azure/identity": "^4.1.0",
+    "@prisma/client": "^5.20.0",
+    "dotenv": "^16.4.5",
+    "ivy-orm": "workspace:^",
+    "tsx": "^4.16.2"
+  }
+}

@@ -1,0 +1,26 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Resource {
+  id       String @id @default(uuid())
+  name     String
+  type     String
+  checksum String
+
+  @@unique([name, type])
+}
+
+model Migration {
+  id            String    @id @default(uuid())
+  migrationName String
+  checksum      String
+  startedAt     DateTime  @default(now())
+  finishedAt    DateTime?
+  logs          String?
+}
