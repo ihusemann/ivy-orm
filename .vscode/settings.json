@@ -3,5 +3,10 @@
     {
       "mode": "auto"
     }
-  ]
+  ],
+  "files.exclude": {
+    "__azurite*": true,
+    "__blobstorage__": true,
+    "__queuestorage__": true
+  }
 }
