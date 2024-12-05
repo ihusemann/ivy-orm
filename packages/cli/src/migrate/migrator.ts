@@ -169,15 +169,15 @@ export class Migrator {
     await this.startMigration();
 
     // DATA SOURCES
-    await this.processCreateOperations(
-      this.searchIndexerClient,
-      this.migration.dataSources.create,
-      this.datasourceHandlers
-    );
-
     await this.processDeleteOperations(
       this.searchIndexerClient,
       this.migration.dataSources.delete,
+      this.datasourceHandlers
+    );
+
+    await this.processCreateOperations(
+      this.searchIndexerClient,
+      this.migration.dataSources.create,
       this.datasourceHandlers
     );
 
