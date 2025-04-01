@@ -49,7 +49,7 @@
     "@azure/identity": "^4.1.0",
     "@azure/keyvault-secrets": "^4.9.0",
     "@azure/search-documents": "^12.0.0",
-    "@ivy-orm/core": "workspace:^",
+    "@ivy-orm/core": "workspace:*",
     "@total-typescript/tsconfig": "^1.0.4",
     "@types/deep-diff": "^1.0.5",
     "@types/json-diff": "^1.0.3",

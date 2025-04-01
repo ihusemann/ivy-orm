@@ -4,7 +4,7 @@ import {
   generateFieldChecksum,
   generateIndexChecksum,
   generateIndexerChecksum,
-} from "../src/util/checksum";
+} from "../src/migrate/checksum";
 import {
   ComplexField,
   SearchIndex,
