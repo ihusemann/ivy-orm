@@ -5,6 +5,12 @@ import {
   dataSourceResourceSchema,
   migrationFileSchema,
 } from "./schemas";
+import {
+  SearchIndex,
+  SearchIndexer,
+  SearchIndexerDataSourceConnection,
+} from "@azure/search-documents";
+import { AnyIndex, AnyIndexer, AnyDataSourceConnection } from "ivy-orm";
 
 /**
  * Type of the state that stores the status of migrations.
@@ -45,6 +51,12 @@ export type Migration = {
 
 export type ResourceType = "index" | "indexer" | "dataSource";
 
+export enum ResourceTypes {
+  Index = "index",
+  Indexer = "indexer",
+  DataSource = "dataSource",
+}
+
 export type IndexResource = z.infer<typeof indexResourceSchema>;
 
 export type IndexerResource = z.infer<typeof indexerResourceSchema>;
@@ -78,3 +90,65 @@ export type MigrationValidationResult = {
   name: string;
   status: "valid" | "checksumMismatch" | "missingInState" | "missingLocally";
 };
+
+export interface MigrationAction<TSchema, TBuilt> {
+  create: TSchema[];
+  delete: TBuilt[];
+  update: {
+    current: TBuilt;
+    planned: TBuilt;
+    method: "update" | "replace";
+  }[];
+}
+
+export type MigrationPlan2 = {
+  indexes: MigrationAction<AnyIndex, SearchIndex>;
+  indexers: MigrationAction<AnyIndexer, SearchIndexer>;
+  dataSources: MigrationAction<
+    AnyDataSourceConnection,
+    SearchIndexerDataSourceConnection
+  >;
+};
+
+export type MigrationPlan = Array<
+  | {
+      resourceType: ResourceTypes.Index;
+      action: "create";
+      resource: SearchIndex;
+    }
+  | {
+      resourceType: ResourceTypes.Index;
+      action: "delete";
+      resource: IndexResource;
+    }
+  | {
+      resourceType: ResourceTypes.Indexer;
+      action: "create";
+      resource: SearchIndexer;
+    }
+  | {
+      resourceType: ResourceTypes.Indexer;
+      action: "delete";
+      resource: IndexerResource;
+    }
+  | {
+      resourceType: ResourceTypes.Indexer;
+      action: "update";
+      resource: SearchIndexer;
+    }
+  | {
+      resourceType: ResourceTypes.DataSource;
+      action: "create";
+      resource: SearchIndexerDataSourceConnection;
+    }
+  | {
+      resourceType: ResourceTypes.DataSource;
+      action: "delete";
+      resource: DataSourceResource;
+    }
+  | {
+      resourceType: ResourceTypes.DataSource;
+      action: "update";
+      resource: SearchIndexerDataSourceConnection;
+    }
+>;

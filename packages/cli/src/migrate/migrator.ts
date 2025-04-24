@@ -11,7 +11,14 @@ import {
   generateIndexerChecksum,
   generateMigrationChecksum,
 } from "./checksum";
-import { Adapter, MigrationFile, Resource, ResourceType } from "./types";
+import {
+  Adapter,
+  MigrationFile,
+  MigrationPlan,
+  Resource,
+  ResourceType,
+  ResourceTypes,
+} from "./types";
 import ora from "ora";
 import chalk from "chalk";
 import { z } from "zod";
@@ -29,8 +36,16 @@ interface ResourceHandlers<TCreateResource, TClient> {
     client: TClient,
     resource: TCreateResource
   ) => Promise<TCreateResource>;
+  updateResource?: (
+    client: TClient,
+    resource: TCreateResource
+  ) => Promise<TCreateResource>;
   stateDeleteResource: (name: string) => Promise<void>;
   stateCreateResource: (resource: TCreateResource) => Promise<Resource>;
+  stateUpdateResource?: (
+    resource: TCreateResource,
+    name: string
+  ) => Promise<Resource>;
 }
 
 type ApplyMigrationResult =
@@ -44,9 +59,7 @@ type ApplyMigrationResult =
     };
 
 export class Migrator {
-  private id?: string; // assigned a value once the migration is started
-  private name: string;
-  private migration: MigrationFile;
+  private migration: MigrationPlan;
   private adapter: Adapter;
   private searchIndexClient: SearchIndexClient;
   private searchIndexerClient: SearchIndexerClient;
@@ -79,6 +92,8 @@ export class Migrator {
     getLiveResource: (client, name) => client.getIndexer(name),
     deleteResource: (client, name) => client.deleteIndexer(name),
     createResource: (client, resource) => client.createIndexer(resource),
+    updateResource: (client, resource) =>
+      client.createOrUpdateIndexer(resource),
     stateDeleteResource: (name) =>
       this.adapter.deleteResource(name, "indexer" as const),
     stateCreateResource: (resource) =>
@@ -87,6 +102,7 @@ export class Migrator {
         type: "indexer" as const,
         checksum: generateIndexerChecksum(resource),
       }),
+    // stateUpdateResource: (resource, name) => this.adapter.updateResource(resource.id, resource)
   };
 
   private datasourceHandlers: ResourceHandlers<
@@ -136,13 +152,12 @@ export class Migrator {
     secretClient,
   }: {
     name: string;
-    migration: MigrationFile;
+    migration: MigrationPlan;
     adapter: Adapter;
     searchIndexClient: SearchIndexClient;
     searchIndexerClient: SearchIndexerClient;
     secretClient?: SecretClient;
   }) {
-    this.name = name;
     this.migration = migration;
     this.adapter = adapter;
     this.searchIndexClient = searchIndexClient;
@@ -150,70 +165,48 @@ export class Migrator {
     this.secretClient = secretClient;
   }
 
-  private async startMigration() {
-    const checksum = generateMigrationChecksum(this.migration);
+  private getHandlers(resourceType: ResourceTypes) {
+    switch (resourceType) {
+      case ResourceTypes.Index: {
+        return {
+          handler: this.indexHandlers,
+          client: this.searchIndexClient,
+        };
+      }
 
-    const migration = await this.adapter.startMigration({
-      migrationName: this.name,
-      checksum,
-    });
+      case ResourceTypes.Indexer: {
+        return {
+          handler: this.indexerHandlers,
+          client: this.searchIndexerClient,
+        };
+      }
 
-    this.id = migration.id;
-
-    return migration;
+      case ResourceTypes.DataSource: {
+        return {
+          handler: this.datasourceHandlers,
+          client: this.searchIndexerClient,
+        };
+      }
+    }
   }
 
   async applyMigration(): Promise<ApplyMigrationResult> {
-    console.log(`\nApplying migration \`${chalk.green(this.name)}\`\n`);
+    console.log(`\nApplying updates\n`);
 
-    await this.startMigration();
+    for await (const { resourceType, action, resource } of this.migration) {
+      const { handler, client } = this.getHandlers(resourceType);
 
-    // DATA SOURCES
-    await this.processDeleteOperations(
-      this.searchIndexerClient,
-      this.migration.dataSources.delete,
-      this.datasourceHandlers
-    );
+      if (action === "delete") {
+        await this.processDeleteOperation(client, resource, handler);
+      }
 
-    await this.processCreateOperations(
-      this.searchIndexerClient,
-      this.migration.dataSources.create,
-      this.datasourceHandlers
-    );
+      if (action === "create") {
+        await this.processCreateOperation(client, resource, handler);
+      }
 
-    // INDEXES
-    await this.processDeleteOperations(
-      this.searchIndexClient,
-      this.migration.indexes.delete,
-      this.indexHandlers
-    );
-
-    await this.processCreateOperations(
-      this.searchIndexClient,
-      this.migration.indexes.create,
-      this.indexHandlers
-    );
-
-    // INDEXERS
-    await this.processDeleteOperations(
-      this.searchIndexerClient,
-      this.migration.indexers.delete,
-      this.indexerHandlers
-    );
-
-    await this.processCreateOperations(
-      this.searchIndexerClient,
-      this.migration.indexers.create,
-      this.indexerHandlers
-    );
-
-    try {
-      await this.succeedMigration();
-    } catch (e) {
-      return {
-        success: false,
-        message: "Migration succeeded, but failed to write to state.",
-      };
+      // if (action === "update") {
+      //   this.searchIndexerClient.
+      // }
     }
 
     return {
@@ -221,103 +214,93 @@ export class Migrator {
     };
   }
 
-  private async succeedMigration() {
-    if (!this.id) return;
-
-    return this.adapter.succeedMigration(this.id);
-  }
-
-  private async errorMigration(error: string) {
-    if (!this.id) return;
-
-    return this.adapter.errorMigration(this.id, error);
-  }
-
-  private async processDeleteOperations<TClient>(
+  private async processDeleteOperation<TClient>(
     client: TClient,
-    resources: Omit<Resource, "id">[],
+    resource: Omit<Resource, "id">,
     handlers: ResourceHandlers<any, TClient>
   ) {
-    for (const resource of resources) {
-      const name = handlers.getName(resource);
-      const spinner = ora(
-        `Deleting ${handlers.resourceType} ${name}...`
-      ).start();
+    const name = handlers.getName(resource);
+    const spinner = ora(`Deleting ${handlers.resourceType} ${name}...`).start();
 
-      try {
-        await handlers.deleteResource(client, name);
+    try {
+      await handlers.deleteResource(client, name);
 
-        await handlers.stateDeleteResource(handlers.getName(resource));
-        spinner.succeed(`Deleted ${handlers.resourceType} ${name}`);
-      } catch (error) {
-        spinner.fail();
+      await handlers.stateDeleteResource(handlers.getName(resource));
+      spinner.succeed(`Deleted ${handlers.resourceType} ${name}`);
+    } catch (error) {
+      spinner.fail();
 
-        console.log(error);
-        await this.errorMigration(JSON.stringify(error));
+      console.log(error);
+      // await this.errorMigration(JSON.stringify(error));
 
-        process.exit(1);
-      }
+      process.exit(1);
     }
   }
 
-  private async processCreateOperations<TCreateResource, TClient>(
+  private async processCreateOperation<TCreateResource, TClient>(
     client: TClient,
-    resources: TCreateResource[],
+    resource: TCreateResource,
     handlers: ResourceHandlers<TCreateResource, TClient>
   ) {
-    for (const resource of resources) {
-      const name = handlers.getName(resource);
-      const spinner = ora(
-        `Creating ${handlers.resourceType} ${name}...`
-      ).start();
+    const name = handlers.getName(resource);
+    const spinner = ora(`Creating ${handlers.resourceType} ${name}...`).start();
 
-      const resourceKey = `${handlers.resourceType}_${handlers.getName(resource)}`;
+    const resourceKey = `${handlers.resourceType}_${handlers.getName(resource)}`;
 
-      try {
-        // create the resource in Azure
-        await handlers.createResource(client, resource);
+    try {
+      // create the resource in Azure
+      await handlers.createResource(client, resource);
 
-        this.rollbackResourcesCollector[resourceKey] = {
-          rollbackResource: () =>
-            handlers.deleteResource(client, handlers.getName(resource)),
-        };
-      } catch (error) {
-        spinner.fail(
-          `${chalk.bold.red("Error:")} failed to create resource ${chalk.green(name)} in Azure.\n\n`
-        );
+      this.rollbackResourcesCollector[resourceKey] = {
+        rollbackResource: () =>
+          handlers.deleteResource(client, handlers.getName(resource)),
+      };
+    } catch (error) {
+      spinner.fail(
+        `${chalk.bold.red("Error:")} failed to create resource ${chalk.green(name)} in Azure.\n\n`
+      );
 
-        console.log(error);
+      console.log(error);
 
-        await this.errorMigration(JSON.stringify(error));
-        await this.rollbackCreatedResources();
+      // await this.errorMigration(JSON.stringify(error));
+      // await this.rollbackCreatedResources();
 
-        process.exit(1);
-      }
-
-      try {
-        // add the resource to backend state
-        await handlers.stateCreateResource(resource);
-
-        this.rollbackResourcesCollector[resourceKey] = {
-          ...this.rollbackResourcesCollector[resourceKey],
-          rollbackState: () =>
-            handlers.stateDeleteResource(handlers.getName(resource)),
-        };
-
-        spinner.succeed(`Created ${handlers.resourceType} ${name}`);
-      } catch (error) {
-        spinner.fail(
-          `${chalk.bold.red("Error:")} failed to save resource ${chalk.green(name)} in state.`
-        );
-
-        console.log(error);
-
-        await this.errorMigration(JSON.stringify(error));
-        await this.rollbackCreatedResources();
-
-        process.exit(1);
-      }
+      process.exit(1);
     }
+
+    try {
+      // add the resource to backend state
+      await handlers.stateCreateResource(resource);
+
+      this.rollbackResourcesCollector[resourceKey] = {
+        ...this.rollbackResourcesCollector[resourceKey],
+        rollbackState: () =>
+          handlers.stateDeleteResource(handlers.getName(resource)),
+      };
+
+      spinner.succeed(`Created ${handlers.resourceType} ${name}`);
+    } catch (error) {
+      spinner.fail(
+        `${chalk.bold.red("Error:")} failed to save resource ${chalk.green(name)} in state.`
+      );
+
+      console.log(error);
+
+      // await this.rollbackCreatedResources();
+
+      process.exit(1);
+    }
+  }
+
+  private async processUpdateOperation<TCreateResource, TClient>(
+    client: TClient,
+    resource: TCreateResource,
+    handlers: ResourceHandlers<TCreateResource, TClient>
+  ) {
+    const name = handlers.getName(resource);
+    const spinner = ora(`Updating ${handlers.resourceType} ${name}...`).start();
+
+    const resourceKey = `${handlers.resourceType}_${handlers.getName(resource)}`;
   }
 
   /**

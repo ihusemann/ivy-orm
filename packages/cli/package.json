@@ -1,6 +1,6 @@
 {
   "name": "ivy-kit",
-  "version": "0.0.26-beta.4",
+  "version": "0.0.26-beta.10",
   "description": "",
   "bin": {
     "ivy-kit": "./dist/bin.cjs"
@@ -59,6 +59,7 @@
     "@types/object-hash": "^3.0.6",
     "@types/pluralize": "^0.0.33",
     "@types/prompts": "^2.4.9",
+    "boxen": "^8.0.1",
     "chalk": "^4.1.2",
     "clean-deep": "^3.4.0",
     "date-fns": "^3.6.0",
@@ -69,6 +70,7 @@
     "pluralize": "^8.0.0",
     "prompts": "^2.4.2",
     "slugify": "^1.6.6",
+    "table": "^6.9.0",
     "tsup": "^8.0.2",
     "tsx": "^4.16.2",
     "typescript": "^5.3.3",
