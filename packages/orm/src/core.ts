@@ -32,6 +32,7 @@ import type {
   SearchSuggester,
   LexicalTokenizer,
   VectorSearch,
+  IndexDocumentsAction,
 } from "@azure/search-documents";
 
 export type Collection<T> = Array<T>;
@@ -402,9 +403,9 @@ export class Indexer<
       dataSourceName,
       encryptionKey,
       etag,
-      isDisabled,
+      isDisabled = false,
       outputFieldMappings,
-      parameters,
+      parameters = { configuration: undefined },
       schedule,
     } = config;
 
@@ -625,6 +626,15 @@ type FilteredSchema<TSchema> = {
 
 export type ConnectSchema<TSchema extends Record<string, any>> = {
   [TIndex in FilteredSchema<TSchema>]: SearchClient<InferType<TSchema[TIndex]>>;
+};
+
+export type InferSearchClientType<T> =
+  T extends SearchClient<infer TModel> ? TModel : never;
+
+export type IndexDocumentsActions<TSchema extends Record<string, any>> = {
+  [TIndex in FilteredSchema<TSchema>]: IndexDocumentsAction<
+    InferType<TSchema[TIndex]>
+  >;
 };
 
 export function connect<

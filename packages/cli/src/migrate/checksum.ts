@@ -23,8 +23,14 @@ function sanitizeIndexer(indexer: SearchIndexer): Partial<SearchIndexer> {
     fieldMappings: indexer.fieldMappings,
     isDisabled: indexer.isDisabled,
     outputFieldMappings: indexer.outputFieldMappings,
-    parameters: indexer.parameters,
-    schedule: indexer.schedule,
+    // parameters: indexer.parameters,
+    ...(indexer.schedule?.interval
+      ? {
+          schedule: {
+            interval: indexer.schedule.interval,
+          },
+        }
+      : { schedule: undefined }),
     skillsetName: indexer.skillsetName,
     targetIndexName: indexer.targetIndexName,
   };
@@ -122,7 +128,7 @@ function sanitizeDataSource(
   return {
     name: dataSource.name,
     description: dataSource.description,
-    connectionString: dataSource.connectionString,
+    // connectionString: dataSource.connectionString,
     container: dataSource.container,
     type: dataSource.type,
     dataChangeDetectionPolicy: dataSource.dataChangeDetectionPolicy,

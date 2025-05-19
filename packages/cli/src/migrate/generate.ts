@@ -54,6 +54,10 @@ export function computeMigrationActions<TSchema, TBuilt>(
     .filter((schemaResource) => {
       const name = getName(schemaResource);
       const builtResource = buildFn(schemaResource);
+      // if (handlers.resourceType === "indexer") {
+      //   console.log("👀👀👀👀👀👀👀👀");
+      //   console.log(builtResource);
+      // }
       const checksum = handlers.generateChecksum(builtResource);
 
       const stateResource = deployedResources.find(

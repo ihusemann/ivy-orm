@@ -1,38 +1,14 @@
-import { boolean, command, string } from "@drizzle-team/brocli";
+import { command, string } from "@drizzle-team/brocli";
 import { baseOptions, baseTransform } from "./base";
 import prompts from "prompts";
 import {
   SearchField,
-  ComplexDataType,
-  SearchFieldDataType,
-  SearchIndex,
-  SearchIndexer,
-  SearchIndexerDataSourceConnection,
   SearchIndexClient,
   SearchIndexerClient,
 } from "@azure/search-documents";
 import chalk from "chalk";
-import { ensureAdapter } from "src/util/adapter";
+import { MigrationFile } from "src/migrate/types";
 import {
-  DataSourceResource,
-  IndexerResource,
-  IndexResource,
-  MigrationFile,
-  MigrationPlan2,
-} from "src/migrate/types";
-import {
-  isDataSourceResource,
-  isIndexerResource,
-  isIndexResource,
-} from "src/migrate/guards";
-import { AnyIndex, AnyIndexer, AnyDataSourceConnection } from "ivy-orm";
-import {
-  generateIndexChecksum,
-  generateIndexerChecksum,
-  generateDataSourceChecksum,
-} from "src/migrate/checksum";
-import {
-  ResourceHandlers,
   computeMigrationActions,
   dataSourceHandlers,
   generateMigrationFile,
@@ -40,16 +16,11 @@ import {
   indexerHandlers,
 } from "src/migrate/generate";
 import ora from "ora";
-import { generateMigrationPlan, printMigrationActions } from "src/migrate/plan";
-import { Migrator } from "src/migrate/migrator";
 import boxen from "boxen";
 import { getBorderCharacters, table } from "table";
-import {
-  isComplexFieldDataType,
-  isSimpleField,
-  isSimpleFieldDataType,
-} from "@ivy-orm/core";
+import { isSimpleField } from "@ivy-orm/core";
 import _ from "lodash";
+import { resolveSecret } from "src/migrate/secrets";
 
 const options = {
   ...baseOptions,
@@ -197,8 +168,14 @@ export const apply = command({
     // console.log(renderFieldTable(index.fields));
 
     // // CALCULATE DATA SOURCE DIFFERENCES
-    const deployedDataSources =
-      await searchIndexerClient.listDataSourceConnections();
+    const deployedDataSources = (
+      await searchIndexerClient.listDataSourceConnections()
+    ).map(({ name, description, ...rest }) => ({
+      name,
+      // ai search sdk seems to set `description` to `name` when undefined.  Breaks diff'ing logic.
+      description: name === description ? undefined : description,
+      ...rest,
+    }));
 
     const indexActions = computeMigrationActions(
       Object.values(indexes),
@@ -220,36 +197,18 @@ export const apply = command({
 
     // TODO: print migration plan
 
-    const migrationPlan2 = generateMigrationFile({
+    const migrationPlan = generateMigrationFile({
       indexActions,
       indexerActions,
       dataSourceActions,
     });
-
-    // const migrationPlan: MigrationPlan2 = {
-    //   indexes: computeMigrationActions(
-    //     Object.values(indexes),
-    //     deployedIndexes,
-    //     indexHandlers
-    //   ),
-    //   indexers: computeMigrationActions(
-    //     Object.values(indexers),
-    //     deployedIndexers,
-    //     indexerHandlers
-    //   ),
-    //   dataSources: computeMigrationActions(
-    //     Object.values(dataSources),
-    //     deployedDataSources,
-    //     dataSourceHandlers
-    //   ),
-    // };
 
     spinner.stop();
 
     console.log("\n");
 
     // determines if any one of indexes, indexers, or dataSources has any create/delete actions
-    const hasActions = Object.values(migrationPlan2)
+    const hasActions = Object.values(migrationPlan)
       .flatMap((actions) => {
         return Object.values(actions).map((action) => {
           return action.length > 0;
@@ -262,7 +221,7 @@ export const apply = command({
       return;
     }
 
-    console.dir(migrationPlan2, { depth: null });
+    console.dir(migrationPlan, { depth: null });
 
     console.log(`\n${chalk.bold("Plan:")}`);
     console.log(
@@ -290,12 +249,16 @@ export const apply = command({
     }
 
     await applyMigrationPlan(
-      migrationPlan2,
+      migrationPlan,
       searchIndexClient,
       searchIndexerClient
     );
   },
 });
+
+async function delay(ms: number = 500) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 async function applyMigrationPlan(
   migrationPlan: MigrationFile,
@@ -307,33 +270,79 @@ async function applyMigrationPlan(
   const spinner = ora("Applying migration plan...").start();
 
   for await (const indexer of migrationPlan.indexers.delete) {
-    spinner.text = `Deleting indexer ${chalk.cyan.underline(indexer.name)}`;
-    await searchIndexerClient.deleteIndexer(indexer.name);
+    try {
+      spinner.text = `Deleting indexer ${chalk.cyan.underline(indexer.name)}`;
+      await searchIndexerClient.deleteIndexer(indexer.name);
+      await delay();
+    } catch (e) {
+      spinner.text = `Failed to delete indexer ${chalk.cyan.underline(indexer.name)}`;
+      console.error(e);
+      process.exit(1);
+    }
   }
 
   for await (const dataSource of migrationPlan.dataSources.delete) {
-    spinner.text = `Deleting data source ${chalk.cyan.underline(dataSource.name)}`;
-    await searchIndexerClient.deleteDataSourceConnection(dataSource.name);
+    try {
+      spinner.text = `Deleting data source ${chalk.cyan.underline(dataSource.name)}`;
+      await searchIndexerClient.deleteDataSourceConnection(dataSource.name);
+      await delay();
+    } catch (e) {
+      spinner.text = `Failed to delete data source ${chalk.cyan.underline(dataSource.name)}`;
+      console.error(e);
+      process.exit(1);
+    }
   }
 
   for await (const index of migrationPlan.indexes.delete) {
-    spinner.text = `Deleting index ${chalk.cyan.underline(index.name)}`;
-    await searchIndexClient.deleteIndex(index.name);
+    try {
+      spinner.text = `Deleting index ${chalk.cyan.underline(index.name)}`;
+      await searchIndexClient.deleteIndex(index.name);
+      await delay();
+    } catch (e) {
+      spinner.text = `Failed to delete index ${chalk.cyan.underline(index.name)}`;
+      console.error(e);
+      process.exit(1);
+    }
   }
 
   for await (const index of migrationPlan.indexes.create) {
-    spinner.text = `Creating index ${chalk.cyan.underline(index.name)}`;
-    await searchIndexClient.createIndex(index);
+    try {
+      spinner.text = `Creating index ${chalk.cyan.underline(index.name)}`;
+      await searchIndexClient.createIndex(index);
+      await delay();
+    } catch (e) {
+      spinner.text = `Failed to create index ${chalk.cyan.underline(index.name)}`;
+      console.error(e);
+      process.exit(1);
+    }
   }
 
   for await (const dataSource of migrationPlan.dataSources.create) {
-    spinner.text = `Creating data source ${chalk.cyan.underline(dataSource.name)}`;
-    await searchIndexerClient.createDataSourceConnection(dataSource);
+    try {
+      spinner.text = `Creating data source ${chalk.cyan.underline(dataSource.name)}`;
+      const connectionString = await resolveSecret(dataSource.connectionString);
+      await searchIndexerClient.createDataSourceConnection({
+        ...dataSource,
+        connectionString,
+      });
+      await delay();
+    } catch (e) {
+      spinner.text = `Failed to create data source ${chalk.cyan.underline(dataSource.name)}`;
+      console.error(e);
+      process.exit(1);
+    }
   }
 
   for await (const indexer of migrationPlan.indexers.create) {
-    spinner.text = `Creating indexer ${chalk.cyan.underline(indexer.name)}`;
-    await searchIndexerClient.createIndexer(indexer);
+    try {
+      spinner.text = `Creating indexer ${chalk.cyan.underline(indexer.name)}`;
+      await searchIndexerClient.createIndexer(indexer);
+      await delay();
+    } catch (e) {
+      spinner.text = `Failed to delete indexer ${chalk.cyan.underline(indexer.name)}`;
+      console.error(e);
+      process.exit(1);
+    }
   }
 
   spinner.succeed("Migration plan applied.");

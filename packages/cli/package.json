@@ -1,6 +1,6 @@
 {
   "name": "ivy-kit",
-  "version": "0.0.26-beta.10",
+  "version": "0.0.26-beta.14",
   "description": "",
   "bin": {
     "ivy-kit": "./dist/bin.cjs"
